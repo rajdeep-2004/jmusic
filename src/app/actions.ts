@@ -2,6 +2,7 @@ import { AppState } from './state.js';
 import { JamendoClient } from '../api/jamendo.js';
 import { Player } from '../player/Player.js';
 import { Track } from '../api/types.js';
+import { QueueManager } from '../queue/QueueManager.js';
 
 export async function performSearch(
   state: AppState,
@@ -26,7 +27,7 @@ export async function performSearch(
     state.searchResults = results;
     state.selectedIndex = 0;
     state.selectedTrack = results.length > 0 ? results[0] : null;
-    state.statusMessage = `Found ${results.length} tracks for "${trimmed}". Use ↑/↓ to navigate, Enter to play.`;
+    state.statusMessage = `Found ${results.length} tracks for "${trimmed}". ↑/↓: Navigate, Enter: Play, A: Add to queue.`;
   } catch (err: any) {
     state.searchResults = [];
     state.selectedIndex = 0;
@@ -74,7 +75,8 @@ export async function playTrackAction(
   state: AppState,
   player: Player,
   track: Track,
-  onUpdate: () => void
+  onUpdate: () => void,
+  queueManager?: QueueManager
 ): Promise<void> {
   if (!track || !track.audioUrl) {
     state.playbackStatus = 'error';
@@ -88,6 +90,19 @@ export async function playTrackAction(
   state.currentPosition = 0;
   state.playbackStatus = 'buffering';
   state.statusMessage = `Buffering: "${track.title}" by ${track.artist}...`;
+
+  if (queueManager) {
+    const existingIdx = queueManager.getTracks().findIndex((t) => t.id === track.id);
+    if (existingIdx !== -1) {
+      queueManager.setCurrentIndex(existingIdx);
+    } else {
+      queueManager.addTrack(track);
+      queueManager.setCurrentIndex(queueManager.size() - 1);
+    }
+    state.queue = queueManager.getTracks();
+    state.queueIndex = queueManager.getCurrentIndex();
+  }
+
   onUpdate();
 
   try {
@@ -105,7 +120,8 @@ export async function playTrackAction(
 export async function togglePlayPauseAction(
   state: AppState,
   player: Player,
-  onUpdate: () => void
+  onUpdate: () => void,
+  queueManager?: QueueManager
 ): Promise<void> {
   if (state.playbackStatus === 'playing') {
     try {
@@ -125,8 +141,14 @@ export async function togglePlayPauseAction(
     }
   } else if (state.selectedTrack) {
     // If stopped, play currently selected track
-    await playTrackAction(state, player, state.selectedTrack, onUpdate);
+    await playTrackAction(state, player, state.selectedTrack, onUpdate, queueManager);
     return;
+  } else if (queueManager && !queueManager.isEmpty()) {
+    const current = queueManager.getCurrentTrack();
+    if (current) {
+      await playTrackAction(state, player, current, onUpdate, queueManager);
+      return;
+    }
   } else {
     state.statusMessage = 'Nothing to play. Select a track first.';
   }
@@ -146,5 +168,24 @@ export async function stopPlaybackAction(
   } catch (err: any) {
     state.statusMessage = `Stop failed: ${err?.message || err}`;
   }
+  onUpdate();
+}
+
+export function addToQueueAction(
+  state: AppState,
+  queueManager: QueueManager,
+  track: Track,
+  onUpdate: () => void
+): void {
+  if (!track) {
+    state.statusMessage = 'No track selected to add to queue.';
+    onUpdate();
+    return;
+  }
+
+  queueManager.addTrack(track);
+  state.queue = queueManager.getTracks();
+  state.queueIndex = queueManager.getCurrentIndex();
+  state.statusMessage = `Added to queue: "${track.title}" by ${track.artist}`;
   onUpdate();
 }

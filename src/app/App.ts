@@ -2,7 +2,9 @@ import { AppState, createInitialState } from './state.js';
 import { AppView } from '../tui/AppView.js';
 import { JamendoClient, jamendoClient } from '../api/jamendo.js';
 import { Player, player as defaultPlayer } from '../player/Player.js';
+import { QueueManager } from '../queue/QueueManager.js';
 import {
+  addToQueueAction,
   enterSearchMode,
   exitSearchMode,
   moveSelectionDown,
@@ -18,17 +20,20 @@ export class App {
   private view: AppView;
   private client: JamendoClient;
   private player: Player;
+  private queueManager: QueueManager;
   private isRunning: boolean = false;
   private syncTimer: NodeJS.Timeout | null = null;
 
   constructor(
     client: JamendoClient = jamendoClient,
-    playerInstance: Player = defaultPlayer
+    playerInstance: Player = defaultPlayer,
+    queueManagerInstance: QueueManager = new QueueManager()
   ) {
     this.state = createInitialState();
     this.view = new AppView();
     this.client = client;
     this.player = playerInstance;
+    this.queueManager = queueManagerInstance;
   }
 
   public start(): void {
@@ -185,13 +190,23 @@ export class App {
 
     if (key === 'Enter') {
       if (this.state.selectedTrack) {
-        await playTrackAction(this.state, this.player, this.state.selectedTrack, this.render);
+        await playTrackAction(this.state, this.player, this.state.selectedTrack, this.render, this.queueManager);
+      }
+      return;
+    }
+
+    if (key === 'a' || key === 'A') {
+      if (this.state.selectedTrack) {
+        addToQueueAction(this.state, this.queueManager, this.state.selectedTrack, this.render);
+      } else {
+        this.state.statusMessage = 'No track selected to add to queue.';
+        this.render();
       }
       return;
     }
 
     if (key === 'Space') {
-      await togglePlayPauseAction(this.state, this.player, this.render);
+      await togglePlayPauseAction(this.state, this.player, this.render, this.queueManager);
       return;
     }
 
@@ -200,7 +215,7 @@ export class App {
       return;
     }
 
-    this.state.statusMessage = `Key: ${key}. Space: Play/Pause, Enter: Play selected, '/': Search, 'Q': Quit.`;
+    this.state.statusMessage = `Key: ${key}. Space: Play/Pause, Enter: Play, A: Add Queue, '/': Search, 'Q': Quit.`;
     this.render();
   };
 
@@ -221,5 +236,9 @@ export class App {
 
   public getState(): AppState {
     return this.state;
+  }
+
+  public getQueueManager(): QueueManager {
+    return this.queueManager;
   }
 }
