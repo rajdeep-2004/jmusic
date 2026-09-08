@@ -91,7 +91,7 @@ export class App {
     if (this.syncTimer) return;
     this.syncTimer = setInterval(async () => {
       await this.syncPlayerState();
-    }, 1000);
+    }, 500);
   }
 
   private stopPlayerSync(): void {
