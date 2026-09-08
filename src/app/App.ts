@@ -6,6 +6,7 @@ import { QueueManager } from '../queue/QueueManager.js';
 import { config as appConfig, AppConfig } from '../config/config.js';
 import {
   addToQueueAction,
+  changeVolumeAction,
   enterSearchMode,
   exitSearchMode,
   moveSelectionDown,
@@ -17,6 +18,7 @@ import {
   seekBackwardAction,
   seekForwardAction,
   stopPlaybackAction,
+  toggleMuteAction,
   togglePlayPauseAction,
 } from './actions.js';
 
@@ -243,12 +245,27 @@ export class App {
       return;
     }
 
+    if (key === '+' || key === '=') {
+      await changeVolumeAction(this.state, this.player, this.config.volumeStep, this.render);
+      return;
+    }
+
+    if (key === '-' || key === '_') {
+      await changeVolumeAction(this.state, this.player, -this.config.volumeStep, this.render);
+      return;
+    }
+
+    if (key === 'm' || key === 'M') {
+      await toggleMuteAction(this.state, this.player, this.render);
+      return;
+    }
+
     if (key === 's' || key === 'S') {
       await stopPlaybackAction(this.state, this.player, this.render);
       return;
     }
 
-    this.state.statusMessage = `Key: ${key}. Space: Play/Pause, ←/→: Seek, N: Next, P: Prev, 'Q': Quit.`;
+    this.state.statusMessage = `Key: ${key}. Space: Play/Pause, ←/→: Seek, +/-: Vol, N: Next, P: Prev, 'Q': Quit.`;
     this.render();
   };
 

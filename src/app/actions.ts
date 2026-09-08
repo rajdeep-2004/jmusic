@@ -286,3 +286,49 @@ export async function seekBackwardAction(
   }
   onUpdate();
 }
+
+let previousVolumeBeforeMute = 100;
+
+export async function changeVolumeAction(
+  state: AppState,
+  player: Player,
+  delta: number,
+  onUpdate: () => void
+): Promise<void> {
+  const newVol = Math.max(0, Math.min(100, state.volume + delta));
+  try {
+    await player.setVolume(newVol);
+    state.volume = newVol;
+    state.statusMessage = `Volume: ${newVol}%`;
+  } catch (err: any) {
+    state.statusMessage = `Volume adjustment failed: ${err?.message || err}`;
+  }
+  onUpdate();
+}
+
+export async function toggleMuteAction(
+  state: AppState,
+  player: Player,
+  onUpdate: () => void
+): Promise<void> {
+  if (state.volume > 0) {
+    previousVolumeBeforeMute = state.volume;
+    try {
+      await player.setVolume(0);
+      state.volume = 0;
+      state.statusMessage = 'Volume: MUTED (0%)';
+    } catch (err: any) {
+      state.statusMessage = `Mute failed: ${err?.message || err}`;
+    }
+  } else {
+    const restoreVol = previousVolumeBeforeMute > 0 ? previousVolumeBeforeMute : 100;
+    try {
+      await player.setVolume(restoreVol);
+      state.volume = restoreVol;
+      state.statusMessage = `Volume: ${restoreVol}%`;
+    } catch (err: any) {
+      state.statusMessage = `Unmute failed: ${err?.message || err}`;
+    }
+  }
+  onUpdate();
+}

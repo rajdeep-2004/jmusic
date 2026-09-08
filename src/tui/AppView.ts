@@ -129,7 +129,7 @@ export class AppView {
     // Controls line
     const controls = state.inputMode === 'search'
       ? ' Type to search | Enter: Search | Esc: Cancel '
-      : ' /: Search | Enter: Play | Space: Play/Pause | ←/→: Seek | N: Next | P: Prev | A: Queue | Q: Quit ';
+      : ' /: Search | Enter: Play | Space: Play/Pause | ←/→: Seek | +/-: Vol | N: Next | P: Prev | A: Queue | Q: Quit ';
     output.push(`│ ${controls.padEnd(cols - 4, ' ')} │`);
 
     // Status message line (if any)

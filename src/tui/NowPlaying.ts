@@ -44,7 +44,8 @@ export function renderNowPlaying(state: AppState, maxRows: number, maxWidth: num
   if (state.currentTrack.album) {
     lines.push(`  Album : ${state.currentTrack.album}`.slice(0, maxWidth));
   }
-  lines.push(`  Status: [${statusTag}]   Vol: ${state.volume}%`);
+  const volDisplay = state.volume === 0 ? 'MUTED (0%)' : `${state.volume}%`;
+  lines.push(`  Status: [${statusTag}]   Vol: ${volDisplay}`);
   lines.push('');
 
   const barWidth = Math.max(10, maxWidth - 22);
