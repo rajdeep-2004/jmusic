@@ -39,6 +39,18 @@ export class AppView {
       return;
     }
 
+    // Handle standalone Escape key
+    if (chunk === '\x1b') {
+      this.onKeyCallback('Escape');
+      return;
+    }
+
+    // Handle Backspace (DEL or BS)
+    if (chunk === '\x7f' || chunk === '\b') {
+      this.onKeyCallback('Backspace');
+      return;
+    }
+
     // Handle ANSI arrow sequences
     if (chunk === '\x1b[A') {
       this.onKeyCallback('up');
@@ -69,7 +81,7 @@ export class AppView {
       return;
     }
 
-    // Standard character keys (q, n, p, etc.)
+    // Standard character keys
     this.onKeyCallback(chunk);
   };
 
@@ -86,7 +98,6 @@ export class AppView {
     output.push(`┌${'─'.repeat(leftPad)}${title}${'─'.repeat(rightPad)}┐`);
 
     // Available height for panels:
-    // rows minus header (2 lines) - queue (3 lines) - controls (3 lines) = rows - 8
     const panelHeight = Math.max(6, rows - 10);
     const leftWidth = Math.floor((cols - 3) / 2);
     const rightWidth = cols - 3 - leftWidth;
@@ -116,7 +127,9 @@ export class AppView {
     output.push(`├${'─'.repeat(cols - 2)}┤`);
 
     // Controls line
-    const controls = ' Space: Play/Pause | N: Next | P: Previous | Q: Quit ';
+    const controls = state.inputMode === 'search'
+      ? ' Type to search | Enter: Search | Esc: Cancel '
+      : ' /: Search | ↑/↓: Navigate | Enter: Select | Space: Play/Pause | Q: Quit ';
     output.push(`│ ${controls.padEnd(cols - 4, ' ')} │`);
 
     // Status message line (if any)

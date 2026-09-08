@@ -1,6 +1,7 @@
 import { Track } from '../api/types.js';
 
 export type PlaybackStatus = 'stopped' | 'playing' | 'paused' | 'buffering' | 'error';
+export type InputMode = 'normal' | 'search';
 
 export interface AppState {
   currentTrack: Track | null;
@@ -15,6 +16,9 @@ export interface AppState {
   selectedTrack: Track | null;
   selectedIndex: number;
   statusMessage?: string;
+  inputMode: InputMode;
+  searchBuffer: string;
+  isLoading: boolean;
 }
 
 export function createInitialState(): AppState {
@@ -30,6 +34,9 @@ export function createInitialState(): AppState {
     searchResults: [],
     selectedTrack: null,
     selectedIndex: 0,
-    statusMessage: 'Ready. Press Q to exit.',
+    statusMessage: 'Ready. Press "/" to search, "Q" to quit.',
+    inputMode: 'normal',
+    searchBuffer: '',
+    isLoading: false,
   };
 }

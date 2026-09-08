@@ -2,6 +2,16 @@ import { config } from '../config/config.js';
 import { JamendoApiResponse, RawJamendoTrack, Track } from './types.js';
 import { JamendoApiError } from '../utils/errors.js';
 
+function decodeHtmlEntities(str: string): string {
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
 export function normalizeJamendoTrack(raw: RawJamendoTrack): Track {
   const duration = typeof raw.duration === 'number'
     ? raw.duration
@@ -9,9 +19,9 @@ export function normalizeJamendoTrack(raw: RawJamendoTrack): Track {
 
   return {
     id: String(raw.id),
-    title: raw.name || 'Unknown Title',
-    artist: raw.artist_name || 'Unknown Artist',
-    album: raw.album_name?.trim() || undefined,
+    title: decodeHtmlEntities(raw.name || 'Unknown Title'),
+    artist: decodeHtmlEntities(raw.artist_name || 'Unknown Artist'),
+    album: raw.album_name?.trim() ? decodeHtmlEntities(raw.album_name.trim()) : undefined,
     duration,
     artworkUrl: raw.image || raw.album_image || undefined,
     audioUrl: raw.audio,
