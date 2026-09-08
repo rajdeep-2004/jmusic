@@ -4,6 +4,14 @@
   "description": "Terminal-based music player powered by Jamendo API and VLC",
   "type": "module",
   "main": "dist/src/index.js",
+  "bin": {
+    "jmusic": "dist/src/index.js"
+  },
+  "files": [
+    "dist/src",
+    "README.md",
+    ".env.example"
+  ],
   "scripts": {
     "build": "tsc",
     "start": "node dist/src/index.js",

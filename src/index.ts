@@ -1,3 +1,6 @@
+#!/usr/bin/env node
+import { fileURLToPath } from 'node:url';
+import fs from 'node:fs';
 import { config, validateConfig } from './config/config.js';
 import { App } from './app/App.js';
 import { player } from './player/Player.js';
@@ -29,7 +32,18 @@ export async function main(): Promise<void> {
   app.start();
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+function isDirectRun(): boolean {
+  if (!process.argv[1]) return false;
+  try {
+    const realArgv1 = fs.realpathSync(process.argv[1]);
+    const currentFile = fileURLToPath(import.meta.url);
+    return realArgv1 === currentFile;
+  } catch {
+    return import.meta.url === `file://${process.argv[1]}`;
+  }
+}
+
+if (isDirectRun()) {
   main().catch((err) => {
     console.error('[Fatal Error]', err?.message || err);
     process.exit(1);
