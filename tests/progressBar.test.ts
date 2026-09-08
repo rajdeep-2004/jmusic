@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { renderProgressBar } from '../src/tui/ProgressBar.js';
+import { renderProgressBarPlain as renderProgressBar } from '../src/tui/ProgressBar.js';
 
 describe('ProgressBar component', () => {
   test('renders 0% progress correctly', () => {

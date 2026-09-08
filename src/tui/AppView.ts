@@ -2,8 +2,98 @@ import { AppState } from '../app/state.js';
 import { renderSearchView } from './SearchView.js';
 import { renderNowPlaying } from './NowPlaying.js';
 import { renderQueueView } from './QueueView.js';
+import {
+  RESET, BOLD, DIM,
+  C_BORDER, C_HEADER_FG, C_HEADER_BG,
+  C_SECTION_FG,
+  C_STATUS_MSG_OK, C_STATUS_MSG_ERR,
+  C_KEY_BG, C_KEY_FG, C_KEY_DESC,
+  padEndAnsi, stripAnsi,
+} from './colors.js';
 
 export type KeyHandler = (key: string) => void;
+
+// ─── Colour helpers local to AppView ─────────────────────────────────────────
+
+function renderHeader(cols: number): string {
+  const title = ' ♪  J M u s i c  ♪ ';
+  const titleColored = `${C_HEADER_BG}${C_HEADER_FG}${BOLD}${title}${RESET}`;
+  const titleV = title.length + 2; // +2 for the ┌ and space chars
+  const leftPad  = Math.max(0, Math.floor((cols - titleV) / 2));
+  const rightPad = Math.max(0, cols - titleV - leftPad);
+  return (
+    `${C_BORDER}┌${RESET}` +
+    `${C_BORDER}${'─'.repeat(leftPad)}${RESET}` +
+    titleColored +
+    `${C_BORDER}${'─'.repeat(rightPad)}${RESET}` +
+    `${C_BORDER}┐${RESET}`
+  );
+}
+
+function renderPanelSep(cols: number): string {
+  return `${C_BORDER}├${'─'.repeat(cols - 2)}┤${RESET}`;
+}
+
+function renderBottomBorder(cols: number): string {
+  return `${C_BORDER}└${'─'.repeat(cols - 2)}┘${RESET}`;
+}
+
+function renderSideRow(left: string, right: string, leftWidth: number, rightWidth: number): string {
+  const l = padEndAnsi(left, leftWidth).slice(0, leftWidth + (left.length - stripAnsi(left)));
+  const r = padEndAnsi(right, rightWidth).slice(0, rightWidth + (right.length - stripAnsi(right)));
+  return `${C_BORDER}│${RESET}${l}${C_BORDER}│${RESET}${r}${C_BORDER}│${RESET}`;
+}
+
+function renderFullRow(content: string, cols: number): string {
+  const inner = cols - 4;
+  const padded = padEndAnsi(content, inner);
+  return `${C_BORDER}│${RESET} ${padded} ${C_BORDER}│${RESET}`;
+}
+
+/** Render a single styled key-hint badge: [KEY] desc */
+function badge(key: string, desc: string): string {
+  return `${C_KEY_BG}${C_KEY_FG}${BOLD} ${key} ${RESET}${C_KEY_DESC}${desc}${RESET}`;
+}
+
+function renderControls(state: AppState, cols: number): string {
+  if (state.inputMode === 'search') {
+    const hints = [
+      badge('Enter', 'Search'),
+      badge('Esc', 'Cancel'),
+      badge('Bksp', 'Delete'),
+    ];
+    const row = '  ' + hints.join(`  ${DIM}|${RESET}  `);
+    return renderFullRow(row, cols);
+  }
+
+  const hints = [
+    badge('/', 'Search'),
+    badge('Enter', 'Play'),
+    badge('Space', 'Pause'),
+    badge('←/→', 'Seek'),
+    badge('+/−', 'Vol'),
+    badge('M', 'Mute'),
+    badge('A', 'Queue'),
+    badge('N/P', 'Next/Prev'),
+    badge('Q', 'Quit'),
+  ];
+
+  // Join with dim separators; if row is too wide it wraps gracefully in-terminal
+  const row = hints.join(`  ${DIM}│${RESET}  `);
+  return renderFullRow(row, cols);
+}
+
+function renderStatusLine(state: AppState, cols: number): string {
+  let msg = state.statusMessage || '';
+  const isError = msg.toLowerCase().includes('error') ||
+                  msg.toLowerCase().includes('fail') ||
+                  msg.toLowerCase().includes('unavailable');
+  const color = isError ? C_STATUS_MSG_ERR : C_STATUS_MSG_OK;
+  const styled = msg ? `${color}${msg}${RESET}` : '';
+  return renderFullRow(styled, cols);
+}
+
+// ─── AppView class ────────────────────────────────────────────────────────────
 
 export class AppView {
   private onKeyCallback: KeyHandler | null = null;
@@ -43,55 +133,16 @@ export class AppView {
   private handleInput = (chunk: string): void => {
     if (!this.onKeyCallback) return;
 
-    // Handle Ctrl+C (character 0x03)
-    if (chunk === '\u0003') {
-      this.onKeyCallback('Ctrl+C');
-      return;
-    }
+    if (chunk === '\u0003') { this.onKeyCallback('Ctrl+C'); return; }
+    if (chunk === '\x1b')   { this.onKeyCallback('Escape'); return; }
+    if (chunk === '\x7f' || chunk === '\b') { this.onKeyCallback('Backspace'); return; }
+    if (chunk === '\x1b[A') { this.onKeyCallback('up');    return; }
+    if (chunk === '\x1b[B') { this.onKeyCallback('down');  return; }
+    if (chunk === '\x1b[C') { this.onKeyCallback('right'); return; }
+    if (chunk === '\x1b[D') { this.onKeyCallback('left');  return; }
+    if (chunk === '\r' || chunk === '\n') { this.onKeyCallback('Enter'); return; }
+    if (chunk === ' ') { this.onKeyCallback('Space'); return; }
 
-    // Handle standalone Escape key
-    if (chunk === '\x1b') {
-      this.onKeyCallback('Escape');
-      return;
-    }
-
-    // Handle Backspace (DEL or BS)
-    if (chunk === '\x7f' || chunk === '\b') {
-      this.onKeyCallback('Backspace');
-      return;
-    }
-
-    // Handle ANSI arrow sequences
-    if (chunk === '\x1b[A') {
-      this.onKeyCallback('up');
-      return;
-    }
-    if (chunk === '\x1b[B') {
-      this.onKeyCallback('down');
-      return;
-    }
-    if (chunk === '\x1b[C') {
-      this.onKeyCallback('right');
-      return;
-    }
-    if (chunk === '\x1b[D') {
-      this.onKeyCallback('left');
-      return;
-    }
-
-    // Enter key (\r or \n)
-    if (chunk === '\r' || chunk === '\n') {
-      this.onKeyCallback('Enter');
-      return;
-    }
-
-    // Space key
-    if (chunk === ' ') {
-      this.onKeyCallback('Space');
-      return;
-    }
-
-    // Standard character keys
     this.onKeyCallback(chunk);
   };
 
@@ -100,61 +151,56 @@ export class AppView {
     const rows = process.stdout.rows || 24;
 
     if (cols < 40 || rows < 10) {
-      process.stdout.write(`\x1b[H\x1b[2JWindow too small (${cols}x${rows}). Please expand your terminal to at least 40x10.\n`);
+      process.stdout.write(
+        `\x1b[H\x1b[2J${C_STATUS_MSG_ERR}Window too small (${cols}×${rows}). ` +
+        `Please expand to at least 40×10.${RESET}\n`
+      );
       return;
     }
 
     const output: string[] = [];
 
-    // Header
-    const title = ' JMusic ';
-    const leftPad = Math.max(0, Math.floor((cols - title.length - 2) / 2));
-    const rightPad = Math.max(0, cols - title.length - 2 - leftPad);
-    output.push(`┌${'─'.repeat(leftPad)}${title}${'─'.repeat(rightPad)}┐`);
+    // ── Header ────────────────────────────────────────────────────────────────
+    output.push(renderHeader(cols));
 
-    // Available height for panels:
+    // ── Main panels ───────────────────────────────────────────────────────────
     const panelHeight = Math.max(6, rows - 10);
-    const leftWidth = Math.floor((cols - 3) / 2);
-    const rightWidth = cols - 3 - leftWidth;
+    const leftWidth   = Math.floor((cols - 3) / 2);
+    const rightWidth  = cols - 3 - leftWidth;
 
-    const leftLines = renderSearchView(state, panelHeight, leftWidth);
+    const leftLines  = renderSearchView(state, panelHeight, leftWidth);
     const rightLines = renderNowPlaying(state, panelHeight, rightWidth);
 
     for (let i = 0; i < panelHeight; i++) {
-      const left = (leftLines[i] || '').padEnd(leftWidth, ' ').slice(0, leftWidth);
-      const right = (rightLines[i] || '').padEnd(rightWidth, ' ').slice(0, rightWidth);
-      output.push(`│${left}│${right}│`);
+      output.push(
+        renderSideRow(
+          leftLines[i]  || '',
+          rightLines[i] || '',
+          leftWidth,
+          rightWidth
+        )
+      );
     }
 
-    // Middle separator for Queue
-    output.push(`├${'─'.repeat(cols - 2)}┤`);
-
-    // Queue section
+    // ── Queue ─────────────────────────────────────────────────────────────────
+    output.push(renderPanelSep(cols));
     const queueLines = renderQueueView(state, cols - 4);
     for (const qLine of queueLines) {
-      output.push(`│ ${qLine.padEnd(cols - 4, ' ')} │`);
+      output.push(renderFullRow(qLine, cols));
     }
+
+    // Pad any remaining rows before footer
     while (output.length < rows - 4) {
-      output.push(`│${' '.repeat(cols - 2)}│`);
+      output.push(`${C_BORDER}│${RESET}${' '.repeat(cols - 2)}${C_BORDER}│${RESET}`);
     }
 
-    // Footer divider
-    output.push(`├${'─'.repeat(cols - 2)}┤`);
+    // ── Footer ────────────────────────────────────────────────────────────────
+    output.push(renderPanelSep(cols));
+    output.push(renderControls(state, cols));
+    output.push(renderStatusLine(state, cols));
+    output.push(renderBottomBorder(cols));
 
-    // Controls line
-    const controls = state.inputMode === 'search'
-      ? ' Type to search | Enter: Search | Esc: Cancel '
-      : ' /: Search | Enter: Play | Space: Play/Pause | ←/→: Seek | +/-: Vol | N: Next | P: Prev | A: Queue | Q: Quit ';
-    output.push(`│ ${controls.padEnd(cols - 4, ' ')} │`);
-
-    // Status message line (if any)
-    const statusMsg = state.statusMessage ? ` ${state.statusMessage} ` : '';
-    output.push(`│${statusMsg.padEnd(cols - 2, ' ')}│`);
-
-    // Bottom border
-    output.push(`└${'─'.repeat(cols - 2)}┘`);
-
-    // Render atomically to screen
+    // Render atomically
     process.stdout.write(`\x1b[H${output.join('\n')}`);
   }
 
