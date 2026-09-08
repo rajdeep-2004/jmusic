@@ -26,7 +26,9 @@ export function renderSearchView(state: AppState, maxRows: number, maxWidth: num
   }
 
   if (state.searchResults.length === 0) {
-    if (state.searchQuery) {
+    if (state.statusMessage && (state.statusMessage.startsWith('Search failed') || state.statusMessage.startsWith('Error'))) {
+      lines.push(`  ${state.statusMessage}`.slice(0, maxWidth));
+    } else if (state.searchQuery) {
       lines.push(`  No tracks found for "${state.searchQuery}".`);
     } else {
       lines.push('  No tracks loaded.');

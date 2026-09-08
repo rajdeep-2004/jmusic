@@ -8,8 +8,8 @@ import { VlcPlaybackError, VlcUnavailableError } from '../utils/errors.js';
 
 export function findVlcBinary(): string | null {
   // 1. Explicit environment variable
-  if (process.env.VLC_PATH && fs.existsSync(process.env.VLC_PATH)) {
-    return process.env.VLC_PATH;
+  if (process.env.VLC_PATH) {
+    return fs.existsSync(process.env.VLC_PATH) ? process.env.VLC_PATH : null;
   }
 
   const platform = os.platform();

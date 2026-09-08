@@ -28,7 +28,17 @@ export class AppView {
       // Re-render will be triggered by App
     };
     process.stdout.on('resize', this.resizeHandler);
+
+    // Emergency crash safety: ensure terminal is restored
+    process.on('uncaughtException', this.emergencyCleanup);
+    process.on('unhandledRejection', this.emergencyCleanup);
   }
+
+  private emergencyCleanup = (err: any): void => {
+    this.destroy();
+    console.error('[Emergency Exit] Unhandled error:', err?.message || err);
+    process.exit(1);
+  };
 
   private handleInput = (chunk: string): void => {
     if (!this.onKeyCallback) return;
@@ -88,6 +98,11 @@ export class AppView {
   public render(state: AppState): void {
     const cols = process.stdout.columns || 80;
     const rows = process.stdout.rows || 24;
+
+    if (cols < 40 || rows < 10) {
+      process.stdout.write(`\x1b[H\x1b[2JWindow too small (${cols}x${rows}). Please expand your terminal to at least 40x10.\n`);
+      return;
+    }
 
     const output: string[] = [];
 
