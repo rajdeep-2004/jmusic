@@ -112,9 +112,20 @@ JMusic is strictly designed around decoupled layers:
    ```
    Edit `.env`:
    ```ini
-   JAMENDO_CLIENT_ID=your_jamendo_client_id_here
-   # Optional: specify custom VLC binary location if not in standard PATH
-   # VLC_PATH=/custom/path/to/vlc
+   # ─── JMusic Configuration ────────────────────────────────────────────────
+
+   # Jamendo API Client ID (Required)
+   # Get a free key at: https://developer.jamendo.com/v3.0/authentication
+   JAMENDO_CLIENT_ID=your_client_id_here
+
+   # VLC binary path (Optional)
+   # Only needed if VLC is not on your system PATH or in a non-standard location.
+   # Examples:
+   #   macOS (Homebrew):  /opt/homebrew/bin/vlc
+   #   macOS (App):       /Applications/VLC.app/Contents/MacOS/VLC
+   #   Linux:             /usr/bin/vlc
+   #   Windows:           C:\Program Files\VideoLAN\VLC\vlc.exe
+   # VLC_PATH=/path/to/vlc
    ```
 
 4. **Build TypeScript:**
