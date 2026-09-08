@@ -1,0 +1,28 @@
+{
+  "name": "jmusic",
+  "version": "0.1.0",
+  "description": "Terminal-based music player powered by Jamendo API and VLC",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc -w"
+  },
+  "keywords": [
+    "cli",
+    "tui",
+    "music",
+    "vlc",
+    "jamendo"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.19",
+    "typescript": "^5.7.3"
+  }
+}
