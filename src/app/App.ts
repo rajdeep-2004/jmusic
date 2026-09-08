@@ -10,6 +10,8 @@ import {
   moveSelectionDown,
   moveSelectionUp,
   performSearch,
+  playNextTrackAction,
+  playPreviousTrackAction,
   playTrackAction,
   stopPlaybackAction,
   togglePlayPauseAction,
@@ -55,12 +57,17 @@ export class App {
       this.render();
     });
 
-    adapter.on('ended', () => {
+    // Automatic next track progression per buildPlan §12
+    adapter.on('ended', async () => {
       this.stopPlayerSync();
-      this.state.playbackStatus = 'stopped';
-      this.state.currentPosition = 0;
-      this.state.statusMessage = 'Track finished playing.';
-      this.render();
+      if (!this.queueManager.isEmpty()) {
+        await playNextTrackAction(this.state, this.player, this.queueManager, this.render);
+      } else {
+        this.state.playbackStatus = 'stopped';
+        this.state.currentPosition = 0;
+        this.state.statusMessage = 'Playback finished.';
+        this.render();
+      }
     });
 
     adapter.on('error', (err) => {
@@ -205,6 +212,16 @@ export class App {
       return;
     }
 
+    if (key === 'n' || key === 'N') {
+      await playNextTrackAction(this.state, this.player, this.queueManager, this.render);
+      return;
+    }
+
+    if (key === 'p' || key === 'P') {
+      await playPreviousTrackAction(this.state, this.player, this.queueManager, this.render);
+      return;
+    }
+
     if (key === 'Space') {
       await togglePlayPauseAction(this.state, this.player, this.render, this.queueManager);
       return;
@@ -215,7 +232,7 @@ export class App {
       return;
     }
 
-    this.state.statusMessage = `Key: ${key}. Space: Play/Pause, Enter: Play, A: Add Queue, '/': Search, 'Q': Quit.`;
+    this.state.statusMessage = `Key: ${key}. Space: Play/Pause, N: Next, P: Prev, A: Add, 'Q': Quit.`;
     this.render();
   };
 

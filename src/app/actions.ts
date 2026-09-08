@@ -27,7 +27,7 @@ export async function performSearch(
     state.searchResults = results;
     state.selectedIndex = 0;
     state.selectedTrack = results.length > 0 ? results[0] : null;
-    state.statusMessage = `Found ${results.length} tracks for "${trimmed}". ↑/↓: Navigate, Enter: Play, A: Add to queue.`;
+    state.statusMessage = `Found ${results.length} tracks for "${trimmed}". ↑/↓: Navigate, Enter: Play, A: Add Queue.`;
   } catch (err: any) {
     state.searchResults = [];
     state.selectedIndex = 0;
@@ -140,7 +140,6 @@ export async function togglePlayPauseAction(
       state.statusMessage = `Resume failed: ${err?.message || err}`;
     }
   } else if (state.selectedTrack) {
-    // If stopped, play currently selected track
     await playTrackAction(state, player, state.selectedTrack, onUpdate, queueManager);
     return;
   } else if (queueManager && !queueManager.isEmpty()) {
@@ -188,4 +187,52 @@ export function addToQueueAction(
   state.queueIndex = queueManager.getCurrentIndex();
   state.statusMessage = `Added to queue: "${track.title}" by ${track.artist}`;
   onUpdate();
+}
+
+export async function playNextTrackAction(
+  state: AppState,
+  player: Player,
+  queueManager: QueueManager,
+  onUpdate: () => void
+): Promise<void> {
+  if (queueManager.isEmpty()) {
+    state.statusMessage = 'Queue is empty.';
+    onUpdate();
+    return;
+  }
+
+  const nextTrack = queueManager.getNextTrack();
+  if (nextTrack) {
+    state.statusMessage = `Next track: "${nextTrack.title}"`;
+    await playTrackAction(state, player, nextTrack, onUpdate, queueManager);
+  } else {
+    // End of queue reached
+    await player.stop();
+    state.playbackStatus = 'stopped';
+    state.currentPosition = 0;
+    state.statusMessage = 'End of queue reached.';
+    onUpdate();
+  }
+}
+
+export async function playPreviousTrackAction(
+  state: AppState,
+  player: Player,
+  queueManager: QueueManager,
+  onUpdate: () => void
+): Promise<void> {
+  if (queueManager.isEmpty()) {
+    state.statusMessage = 'Queue is empty.';
+    onUpdate();
+    return;
+  }
+
+  const prevTrack = queueManager.getPreviousTrack();
+  if (prevTrack) {
+    state.statusMessage = `Previous track: "${prevTrack.title}"`;
+    await playTrackAction(state, player, prevTrack, onUpdate, queueManager);
+  } else {
+    state.statusMessage = 'Beginning of queue reached.';
+    onUpdate();
+  }
 }
