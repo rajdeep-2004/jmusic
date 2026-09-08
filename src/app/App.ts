@@ -1,24 +1,33 @@
 import { AppState, createInitialState } from './state.js';
 import { AppView } from '../tui/AppView.js';
 import { JamendoClient, jamendoClient } from '../api/jamendo.js';
+import { Player, player as defaultPlayer } from '../player/Player.js';
 import {
   enterSearchMode,
   exitSearchMode,
   moveSelectionDown,
   moveSelectionUp,
   performSearch,
+  playTrackAction,
+  stopPlaybackAction,
+  togglePlayPauseAction,
 } from './actions.js';
 
 export class App {
   private state: AppState;
   private view: AppView;
   private client: JamendoClient;
+  private player: Player;
   private isRunning: boolean = false;
 
-  constructor(client: JamendoClient = jamendoClient) {
+  constructor(
+    client: JamendoClient = jamendoClient,
+    playerInstance: Player = defaultPlayer
+  ) {
     this.state = createInitialState();
     this.view = new AppView();
     this.client = client;
+    this.player = playerInstance;
   }
 
   public start(): void {
@@ -26,6 +35,19 @@ export class App {
 
     process.on('SIGINT', this.handleExit);
     process.on('SIGTERM', this.handleExit);
+
+    // Wire player event listeners
+    const adapter = this.player.getAdapter();
+    adapter.on('statusChange', (status) => {
+      this.state.playbackStatus = status;
+      this.render();
+    });
+
+    adapter.on('error', (err) => {
+      this.state.playbackStatus = 'error';
+      this.state.statusMessage = `Player error: ${err.message}`;
+      this.render();
+    });
 
     this.view.init(this.handleKey);
     process.stdout.on('resize', () => {
@@ -43,7 +65,7 @@ export class App {
     }
   };
 
-  private handleKey = (key: string): void => {
+  private handleKey = async (key: string): Promise<void> => {
     if (!this.isRunning) return;
 
     if (key === 'Ctrl+C') {
@@ -61,7 +83,7 @@ export class App {
         const query = this.state.searchBuffer;
         this.state.inputMode = 'normal';
         this.state.searchBuffer = '';
-        performSearch(this.state, this.client, query, this.render);
+        await performSearch(this.state, this.client, query, this.render);
         return;
       }
 
@@ -77,7 +99,6 @@ export class App {
         return;
       }
 
-      // Add regular printable characters
       if (key.length === 1 && key >= ' ') {
         this.state.searchBuffer += key;
         this.render();
@@ -108,15 +129,23 @@ export class App {
     }
 
     if (key === 'Enter') {
-      if (this.state.searchResults.length > 0) {
-        this.state.selectedTrack = this.state.searchResults[this.state.selectedIndex];
-        this.state.statusMessage = `Selected: "${this.state.selectedTrack.title}" by ${this.state.selectedTrack.artist}. (Playback in Step 5/6)`;
-        this.render();
+      if (this.state.selectedTrack) {
+        await playTrackAction(this.state, this.player, this.state.selectedTrack, this.render);
       }
       return;
     }
 
-    this.state.statusMessage = `Key: ${key}. Press '/' to search, ↑/↓ to navigate, 'Q' to quit.`;
+    if (key === 'Space') {
+      await togglePlayPauseAction(this.state, this.player, this.render);
+      return;
+    }
+
+    if (key === 's' || key === 'S') {
+      await stopPlaybackAction(this.state, this.player, this.render);
+      return;
+    }
+
+    this.state.statusMessage = `Key: ${key}. Space: Play/Pause, Enter: Play selected, '/': Search, 'Q': Quit.`;
     this.render();
   };
 
@@ -125,6 +154,7 @@ export class App {
     this.isRunning = false;
     process.removeListener('SIGINT', this.handleExit);
     process.removeListener('SIGTERM', this.handleExit);
+    this.player.destroy().catch(() => {});
     this.view.destroy();
     process.exit(0);
   }

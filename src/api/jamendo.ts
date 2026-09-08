@@ -38,11 +38,12 @@ export class JamendoClient {
   }
 
   public getClientId(): string {
-    return this.clientId;
+    return this.clientId || config.jamendoClientId;
   }
 
   public async searchTracks(query: string, limit: number = 20): Promise<Track[]> {
-    if (!this.clientId) {
+    const effectiveClientId = this.clientId || config.jamendoClientId;
+    if (!effectiveClientId) {
       throw new JamendoApiError(
         'JAMENDO_CLIENT_ID is not configured. Please set your API key in .env',
         'MISSING_CLIENT_ID'
@@ -55,7 +56,7 @@ export class JamendoClient {
     }
 
     const url = new URL(`${this.baseUrl}/tracks/`);
-    url.searchParams.set('client_id', this.clientId);
+    url.searchParams.set('client_id', effectiveClientId);
     url.searchParams.set('format', 'json');
     url.searchParams.set('search', trimmed);
     url.searchParams.set('limit', String(Math.max(1, Math.min(limit, 100))));
