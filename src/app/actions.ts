@@ -3,6 +3,8 @@ import { JamendoClient } from '../api/jamendo.js';
 import { Player } from '../player/Player.js';
 import { Track } from '../api/types.js';
 import { QueueManager } from '../queue/QueueManager.js';
+import { DEFAULT_SEEK_SECONDS } from '../config/config.js';
+import { formatTime } from '../utils/formatTime.js';
 
 export async function performSearch(
   state: AppState,
@@ -206,7 +208,6 @@ export async function playNextTrackAction(
     state.statusMessage = `Next track: "${nextTrack.title}"`;
     await playTrackAction(state, player, nextTrack, onUpdate, queueManager);
   } else {
-    // End of queue reached
     await player.stop();
     state.playbackStatus = 'stopped';
     state.currentPosition = 0;
@@ -235,4 +236,53 @@ export async function playPreviousTrackAction(
     state.statusMessage = 'Beginning of queue reached.';
     onUpdate();
   }
+}
+
+export async function seekForwardAction(
+  state: AppState,
+  player: Player,
+  seekAmount: number = DEFAULT_SEEK_SECONDS,
+  onUpdate: () => void
+): Promise<void> {
+  if (state.playbackStatus !== 'playing' && state.playbackStatus !== 'paused') {
+    state.statusMessage = 'Cannot seek: no active playback.';
+    onUpdate();
+    return;
+  }
+
+  const maxDuration = state.duration > 0 ? state.duration : (state.currentTrack?.duration || Infinity);
+  const target = Math.min(maxDuration, state.currentPosition + seekAmount);
+
+  try {
+    await player.seek(target);
+    state.currentPosition = target;
+    state.statusMessage = `Seek +${seekAmount}s → ${formatTime(target)}`;
+  } catch (err: any) {
+    state.statusMessage = `Seek failed: ${err?.message || err}`;
+  }
+  onUpdate();
+}
+
+export async function seekBackwardAction(
+  state: AppState,
+  player: Player,
+  seekAmount: number = DEFAULT_SEEK_SECONDS,
+  onUpdate: () => void
+): Promise<void> {
+  if (state.playbackStatus !== 'playing' && state.playbackStatus !== 'paused') {
+    state.statusMessage = 'Cannot seek: no active playback.';
+    onUpdate();
+    return;
+  }
+
+  const target = Math.max(0, state.currentPosition - seekAmount);
+
+  try {
+    await player.seek(target);
+    state.currentPosition = target;
+    state.statusMessage = `Seek -${seekAmount}s → ${formatTime(target)}`;
+  } catch (err: any) {
+    state.statusMessage = `Seek failed: ${err?.message || err}`;
+  }
+  onUpdate();
 }

@@ -3,6 +3,7 @@ import { AppView } from '../tui/AppView.js';
 import { JamendoClient, jamendoClient } from '../api/jamendo.js';
 import { Player, player as defaultPlayer } from '../player/Player.js';
 import { QueueManager } from '../queue/QueueManager.js';
+import { config as appConfig, AppConfig } from '../config/config.js';
 import {
   addToQueueAction,
   enterSearchMode,
@@ -13,6 +14,8 @@ import {
   playNextTrackAction,
   playPreviousTrackAction,
   playTrackAction,
+  seekBackwardAction,
+  seekForwardAction,
   stopPlaybackAction,
   togglePlayPauseAction,
 } from './actions.js';
@@ -23,19 +26,22 @@ export class App {
   private client: JamendoClient;
   private player: Player;
   private queueManager: QueueManager;
+  private config: AppConfig;
   private isRunning: boolean = false;
   private syncTimer: NodeJS.Timeout | null = null;
 
   constructor(
     client: JamendoClient = jamendoClient,
     playerInstance: Player = defaultPlayer,
-    queueManagerInstance: QueueManager = new QueueManager()
+    queueManagerInstance: QueueManager = new QueueManager(),
+    configuration: AppConfig = appConfig
   ) {
     this.state = createInitialState();
     this.view = new AppView();
     this.client = client;
     this.player = playerInstance;
     this.queueManager = queueManagerInstance;
+    this.config = configuration;
   }
 
   public start(): void {
@@ -195,6 +201,16 @@ export class App {
       return;
     }
 
+    if (key === 'left') {
+      await seekBackwardAction(this.state, this.player, this.config.seekSeconds, this.render);
+      return;
+    }
+
+    if (key === 'right') {
+      await seekForwardAction(this.state, this.player, this.config.seekSeconds, this.render);
+      return;
+    }
+
     if (key === 'Enter') {
       if (this.state.selectedTrack) {
         await playTrackAction(this.state, this.player, this.state.selectedTrack, this.render, this.queueManager);
@@ -232,7 +248,7 @@ export class App {
       return;
     }
 
-    this.state.statusMessage = `Key: ${key}. Space: Play/Pause, N: Next, P: Prev, A: Add, 'Q': Quit.`;
+    this.state.statusMessage = `Key: ${key}. Space: Play/Pause, ←/→: Seek, N: Next, P: Prev, 'Q': Quit.`;
     this.render();
   };
 
