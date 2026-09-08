@@ -29,20 +29,20 @@ export function normalizeJamendoTrack(raw: RawJamendoTrack): Track {
 }
 
 export class JamendoClient {
-  private clientId: string;
+  private clientId?: string;
   private baseUrl: string;
 
   constructor(clientId?: string, baseUrl: string = 'https://api.jamendo.com/v3.0') {
-    this.clientId = clientId !== undefined ? clientId : config.jamendoClientId;
+    this.clientId = clientId;
     this.baseUrl = baseUrl.replace(/\/+$/, '');
   }
 
   public getClientId(): string {
-    return this.clientId || config.jamendoClientId;
+    return this.clientId !== undefined ? this.clientId : config.jamendoClientId;
   }
 
   public async searchTracks(query: string, limit: number = 20): Promise<Track[]> {
-    const effectiveClientId = this.clientId || config.jamendoClientId;
+    const effectiveClientId = this.getClientId();
     if (!effectiveClientId) {
       throw new JamendoApiError(
         'JAMENDO_CLIENT_ID is not configured. Please set your API key in .env',

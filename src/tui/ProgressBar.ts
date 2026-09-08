@@ -5,11 +5,11 @@ export function renderProgressBar(
   duration: number,
   barWidth: number = 20
 ): string {
-  const currentStr = formatTime(currentPosition);
-  const durationStr = formatTime(duration);
-
   const safeDuration = duration > 0 ? duration : 0;
   const safePosition = Math.max(0, Math.min(currentPosition, safeDuration || currentPosition));
+
+  const currentStr = formatTime(safePosition);
+  const durationStr = formatTime(safeDuration);
 
   const ratio = safeDuration > 0 ? Math.min(1, Math.max(0, safePosition / safeDuration)) : 0;
   const actualBarWidth = Math.max(5, barWidth);
