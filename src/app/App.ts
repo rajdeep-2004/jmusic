@@ -19,6 +19,7 @@ export class App {
   private client: JamendoClient;
   private player: Player;
   private isRunning: boolean = false;
+  private syncTimer: NodeJS.Timeout | null = null;
 
   constructor(
     client: JamendoClient = jamendoClient,
@@ -40,10 +41,25 @@ export class App {
     const adapter = this.player.getAdapter();
     adapter.on('statusChange', (status) => {
       this.state.playbackStatus = status;
+      if (status === 'playing') {
+        this.startPlayerSync();
+      } else if (status === 'stopped') {
+        this.stopPlayerSync();
+        this.state.currentPosition = 0;
+      }
+      this.render();
+    });
+
+    adapter.on('ended', () => {
+      this.stopPlayerSync();
+      this.state.playbackStatus = 'stopped';
+      this.state.currentPosition = 0;
+      this.state.statusMessage = 'Track finished playing.';
       this.render();
     });
 
     adapter.on('error', (err) => {
+      this.stopPlayerSync();
       this.state.playbackStatus = 'error';
       this.state.statusMessage = `Player error: ${err.message}`;
       this.render();
@@ -57,6 +73,45 @@ export class App {
     });
 
     this.render();
+  }
+
+  private startPlayerSync(): void {
+    if (this.syncTimer) return;
+    this.syncTimer = setInterval(async () => {
+      await this.syncPlayerState();
+    }, 1000);
+  }
+
+  private stopPlayerSync(): void {
+    if (this.syncTimer) {
+      clearInterval(this.syncTimer);
+      this.syncTimer = null;
+    }
+  }
+
+  private async syncPlayerState(): Promise<void> {
+    if (!this.isRunning) return;
+    if (this.state.playbackStatus !== 'playing' && this.state.playbackStatus !== 'paused') {
+      return;
+    }
+
+    try {
+      const pos = await this.player.getPosition();
+      if (typeof pos === 'number' && pos >= 0) {
+        this.state.currentPosition = pos;
+      }
+      const dur = await this.player.getDuration();
+      if (typeof dur === 'number' && dur > 0) {
+        this.state.duration = dur;
+      }
+      const vol = await this.player.getVolume();
+      if (typeof vol === 'number' && vol >= 0) {
+        this.state.volume = vol;
+      }
+      this.render();
+    } catch {
+      // Ignore transient query errors during transitions
+    }
   }
 
   private render = (): void => {
@@ -152,6 +207,7 @@ export class App {
   public stop(): void {
     if (!this.isRunning) return;
     this.isRunning = false;
+    this.stopPlayerSync();
     process.removeListener('SIGINT', this.handleExit);
     process.removeListener('SIGTERM', this.handleExit);
     this.player.destroy().catch(() => {});
