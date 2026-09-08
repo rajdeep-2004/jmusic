@@ -118,6 +118,11 @@ JMusic is strictly designed around decoupled layers:
    # Get a free key at: https://developer.jamendo.com/v3.0/authentication
    JAMENDO_CLIENT_ID=your_client_id_here
 
+   # Jamendo API Client Secret (Not currently used)
+   # Required only for OAuth2 write endpoints (playlists, favourites).
+   # JMusic uses read-only search — only CLIENT_ID is needed for now.
+   JAMENDO_CLIENT_SECRET=your_client_secret_here
+
    # VLC binary path (Optional)
    # Only needed if VLC is not on your system PATH or in a non-standard location.
    # Examples:
