@@ -5,19 +5,27 @@ import { Player, player as defaultPlayer } from '../player/Player.js';
 import { QueueManager } from '../queue/QueueManager.js';
 import { config as appConfig, AppConfig } from '../config/config.js';
 import {
-  addToQueueAction,
+  addActiveSelectionToQueueAction,
   changeVolumeAction,
+  cycleCategoryAction,
+  cycleViewAction,
   enterSearchMode,
   exitSearchMode,
+  loadDiscoverTracks,
+  moveActiveSelectionDown,
+  moveActiveSelectionUp,
   moveSelectionDown,
   moveSelectionUp,
   performSearch,
+  playActiveSelectionAction,
   playNextTrackAction,
   playPreviousTrackAction,
   playTrackAction,
+  removeSelectedFromQueueAction,
   seekBackwardAction,
   seekForwardAction,
   stopPlaybackAction,
+  switchViewAction,
   toggleMuteAction,
   togglePlayPauseAction,
 } from './actions.js';
@@ -93,6 +101,9 @@ export class App {
     });
 
     this.render();
+
+    // Dynamically fetch initial Discover tracks from Jamendo on launch
+    loadDiscoverTracks(this.state, this.client, 'featured', this.render).catch(() => {});
   }
 
   private startPlayerSync(): void {
@@ -158,6 +169,7 @@ export class App {
         const query = this.state.searchBuffer;
         this.state.inputMode = 'normal';
         this.state.searchBuffer = '';
+        switchViewAction(this.state, 'search', this.render);
         await performSearch(this.state, this.client, query, this.render);
         return;
       }
@@ -182,27 +194,80 @@ export class App {
       return;
     }
 
-    // Normal mode controls
+    // ── Normal Mode Controls ──────────────────────────────────────────────────
     if (key === 'q' || key === 'Q') {
       this.stop();
       return;
     }
 
+    // View switching tabs (1: Discover, 2: Search, 3: Queue, 4: Now Playing)
+    if (key === '1') {
+      switchViewAction(this.state, 'home', this.render);
+      return;
+    }
+
+    if (key === '2') {
+      switchViewAction(this.state, 'search', this.render);
+      return;
+    }
+
+    if (key === '3') {
+      switchViewAction(this.state, 'queue', this.render);
+      return;
+    }
+
+    if (key === '4') {
+      switchViewAction(this.state, 'nowPlaying', this.render);
+      return;
+    }
+
+    // Tab key: In Home, cycles categories; in other views, cycles tabs
+    if (key === 'Tab') {
+      if (this.state.currentView === 'home') {
+        await cycleCategoryAction(this.state, this.client, 1, this.render);
+      } else {
+        cycleViewAction(this.state, this.render);
+      }
+      return;
+    }
+
+    if (key === 'Shift+Tab') {
+      if (this.state.currentView === 'home') {
+        await cycleCategoryAction(this.state, this.client, -1, this.render);
+      }
+      return;
+    }
+
+    // Category navigation shortcuts
+    if (key === 'c' || key === 'C' || key === ']') {
+      await cycleCategoryAction(this.state, this.client, 1, this.render);
+      return;
+    }
+
+    if (key === '[') {
+      await cycleCategoryAction(this.state, this.client, -1, this.render);
+      return;
+    }
+
+    // Search prompt trigger
     if (key === '/') {
+      switchViewAction(this.state, 'search', this.render);
       enterSearchMode(this.state, this.render);
       return;
     }
 
-    if (key === 'up') {
-      moveSelectionUp(this.state, this.render);
+    // List navigation (works across Discover, Search, and Queue)
+    if (key === 'up' || key === 'k') {
+      moveActiveSelectionUp(this.state, this.render);
       return;
     }
 
-    if (key === 'down') {
-      moveSelectionDown(this.state, this.render);
+    if (key === 'down' || key === 'j') {
+      moveActiveSelectionDown(this.state, this.render);
       return;
     }
 
+    // Seeking (5s back / forward)
     if (key === 'left') {
       await seekBackwardAction(this.state, this.player, this.config.seekSeconds, this.render);
       return;
@@ -213,23 +278,27 @@ export class App {
       return;
     }
 
+    // Play active track
     if (key === 'Enter') {
-      if (this.state.selectedTrack) {
-        await playTrackAction(this.state, this.player, this.state.selectedTrack, this.render, this.queueManager);
-      }
+      await playActiveSelectionAction(this.state, this.player, this.render, this.queueManager);
       return;
     }
 
+    // Enqueue active track
     if (key === 'a' || key === 'A') {
-      if (this.state.selectedTrack) {
-        addToQueueAction(this.state, this.queueManager, this.state.selectedTrack, this.render);
-      } else {
-        this.state.statusMessage = 'No track selected to add to queue.';
-        this.render();
-      }
+      addActiveSelectionToQueueAction(this.state, this.queueManager, this.render);
       return;
     }
 
+    // Remove from queue when in Queue view
+    if (key === 'd' || key === 'D' || key === 'x' || key === 'X') {
+      if (this.state.currentView === 'queue') {
+        removeSelectedFromQueueAction(this.state, this.queueManager, this.render);
+        return;
+      }
+    }
+
+    // Track progression controls
     if (key === 'n' || key === 'N') {
       await playNextTrackAction(this.state, this.player, this.queueManager, this.render);
       return;
@@ -245,6 +314,7 @@ export class App {
       return;
     }
 
+    // Volume controls
     if (key === '+' || key === '=') {
       await changeVolumeAction(this.state, this.player, this.config.volumeStep, this.render);
       return;
@@ -265,7 +335,7 @@ export class App {
       return;
     }
 
-    this.state.statusMessage = `Key: ${key}. Space: Play/Pause, ←/→: Seek, +/-: Vol, N: Next, P: Prev, 'Q': Quit.`;
+    this.state.statusMessage = `Key: ${key}. Space: Play/Pause, 1-4: Tabs, Tab/C: Category, Enter: Play, Q: Quit.`;
     this.render();
   };
 

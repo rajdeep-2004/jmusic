@@ -1,99 +1,144 @@
-import { AppState } from '../app/state.js';
+import { AppState, AppViewMode } from '../app/state.js';
+import { renderHomeView } from './HomeView.js';
 import { renderSearchView } from './SearchView.js';
 import { renderNowPlaying } from './NowPlaying.js';
-import { renderQueueView } from './QueueView.js';
+import { renderQueueView, renderQueueVertical } from './QueueView.js';
+import { renderLogo } from './Logo.js';
 import {
   RESET, BOLD, DIM,
-  C_BORDER, C_HEADER_FG, C_HEADER_BG,
-  C_SECTION_FG,
-  C_STATUS_MSG_OK, C_STATUS_MSG_ERR,
-  C_KEY_BG, C_KEY_FG, C_KEY_DESC,
+  THEME, BOX,
   padEndAnsi, stripAnsi,
 } from './colors.js';
 
 export type KeyHandler = (key: string) => void;
 
-// ─── Colour helpers local to AppView ─────────────────────────────────────────
-
-function renderHeader(cols: number): string {
-  const title = ' ♪  J M u s i c  ♪ ';
-  const titleColored = `${C_HEADER_BG}${C_HEADER_FG}${BOLD}${title}${RESET}`;
-  const titleV = title.length + 2; // +2 for the ┌ and space chars
-  const leftPad  = Math.max(0, Math.floor((cols - titleV) / 2));
-  const rightPad = Math.max(0, cols - titleV - leftPad);
-  return (
-    `${C_BORDER}┌${RESET}` +
-    `${C_BORDER}${'─'.repeat(leftPad)}${RESET}` +
-    titleColored +
-    `${C_BORDER}${'─'.repeat(rightPad)}${RESET}` +
-    `${C_BORDER}┐${RESET}`
-  );
+function renderTopBorder(cols: number): string {
+  return `${THEME.border}${BOX.topLeft}${BOX.horizontal.repeat(cols - 2)}${BOX.topRight}${RESET}`;
 }
 
 function renderPanelSep(cols: number): string {
-  return `${C_BORDER}├${'─'.repeat(cols - 2)}┤${RESET}`;
+  return `${THEME.border}${BOX.teeLeft}${BOX.horizontal.repeat(cols - 2)}${BOX.teeRight}${RESET}`;
 }
 
 function renderBottomBorder(cols: number): string {
-  return `${C_BORDER}└${'─'.repeat(cols - 2)}┘${RESET}`;
-}
-
-function renderSideRow(left: string, right: string, leftWidth: number, rightWidth: number): string {
-  const l = padEndAnsi(left, leftWidth).slice(0, leftWidth + (left.length - stripAnsi(left)));
-  const r = padEndAnsi(right, rightWidth).slice(0, rightWidth + (right.length - stripAnsi(right)));
-  return `${C_BORDER}│${RESET}${l}${C_BORDER}│${RESET}${r}${C_BORDER}│${RESET}`;
+  return `${THEME.border}${BOX.bottomLeft}${BOX.horizontal.repeat(cols - 2)}${BOX.bottomRight}${RESET}`;
 }
 
 function renderFullRow(content: string, cols: number): string {
   const inner = cols - 4;
   const padded = padEndAnsi(content, inner);
-  return `${C_BORDER}│${RESET} ${padded} ${C_BORDER}│${RESET}`;
+  return `${THEME.border}${BOX.vertical}${RESET} ${padded} ${THEME.border}${BOX.vertical}${RESET}`;
 }
 
-/** Render a single styled key-hint badge: [KEY] desc */
-function badge(key: string, desc: string): string {
-  return `${C_KEY_BG}${C_KEY_FG}${BOLD} ${key} ${RESET}${C_KEY_DESC}${desc}${RESET}`;
+function renderSideRow(left: string, right: string, leftWidth: number, rightWidth: number): string {
+  const l = padEndAnsi(left, leftWidth).slice(0, leftWidth + (left.length - stripAnsi(left)));
+  const r = padEndAnsi(right, rightWidth).slice(0, rightWidth + (right.length - stripAnsi(right)));
+  return `${THEME.border}${BOX.vertical}${RESET}${l}${THEME.border}${BOX.vertical}${RESET}${r}${THEME.border}${BOX.vertical}${RESET}`;
+}
+
+function renderBadge(key: string, desc: string): string {
+  return `${THEME.badgeKeyBg}${THEME.badgeKeyFg}${BOLD} ${key} ${RESET}${THEME.muted} ${desc}${RESET}`;
+}
+
+function renderHeaderBanner(cols: number, rows: number): string[] {
+  const lines: string[] = [];
+
+  // Show ASCII art logo if terminal has enough height and width
+  if (rows >= 28 && cols >= 70) {
+    const logoLines = renderLogo(cols - 4);
+    for (const l of logoLines) {
+      const padLeft = Math.max(0, Math.floor((cols - 4 - stripAnsi(l)) / 2));
+      lines.push(renderFullRow(' '.repeat(padLeft) + l, cols));
+    }
+  } else {
+    const title = `♪  ${THEME.accent}${BOLD}J M U S I C${RESET}  ${THEME.muted}•  Terminal Audio Player${RESET}  ♪`;
+    const titleVisible = stripAnsi(title);
+    const padLeft = Math.max(0, Math.floor((cols - 4 - titleVisible) / 2));
+    lines.push(renderFullRow(' '.repeat(padLeft) + title, cols));
+  }
+
+  return lines;
+}
+
+function renderNavTabs(currentView: AppViewMode, cols: number): string {
+  const tabsConfig: Array<{ id: AppViewMode; key: string; label: string }> = [
+    { id: 'home', key: '1', label: 'Discover' },
+    { id: 'search', key: '2', label: 'Search' },
+    { id: 'queue', key: '3', label: 'Queue' },
+    { id: 'nowPlaying', key: '4', label: 'Now Playing' },
+  ];
+
+  const renderedTabs = tabsConfig.map((tab) => {
+    const isActive = tab.id === currentView;
+    if (isActive) {
+      return `${THEME.selectedBg}${THEME.selectedFg}${BOLD} ${tab.key}:${tab.label} ${RESET}`;
+    }
+    return `${THEME.dim}${tab.key}:${tab.label}${RESET}`;
+  });
+
+  const row = '  ' + renderedTabs.join(`   ${THEME.border}│${RESET}   `);
+  return renderFullRow(row, cols);
 }
 
 function renderControls(state: AppState, cols: number): string {
   if (state.inputMode === 'search') {
     const hints = [
-      badge('Enter', 'Search'),
-      badge('Esc', 'Cancel'),
-      badge('Bksp', 'Delete'),
+      renderBadge('Enter', 'Submit Search'),
+      renderBadge('Esc', 'Cancel Search'),
+      renderBadge('Bksp', 'Delete'),
     ];
-    const row = '  ' + hints.join(`  ${DIM}|${RESET}  `);
+    const row = '  ' + hints.join(`   ${THEME.dim}│${RESET}   `);
     return renderFullRow(row, cols);
   }
 
-  const hints = [
-    badge('/', 'Search'),
-    badge('Enter', 'Play'),
-    badge('Space', 'Pause'),
-    badge('←/→', 'Seek'),
-    badge('+/−', 'Vol'),
-    badge('M', 'Mute'),
-    badge('A', 'Queue'),
-    badge('N/P', 'Next/Prev'),
-    badge('Q', 'Quit'),
+  const row1Hints = [
+    renderBadge('Space', 'Play/Pause'),
+    renderBadge('1-4', 'Views'),
+    renderBadge('Tab / C', 'Category'),
+    renderBadge('Enter', 'Play'),
+    renderBadge('A', 'Queue'),
   ];
 
-  // Join with dim separators; if row is too wide it wraps gracefully in-terminal
-  const row = hints.join(`  ${DIM}│${RESET}  `);
-  return renderFullRow(row, cols);
+  const row2Hints = [
+    renderBadge('/', 'Search'),
+    renderBadge('←/→', 'Seek -/+5s'),
+    renderBadge('+/−', 'Vol'),
+    renderBadge('M', 'Mute'),
+    renderBadge('N/P', 'Next/Prev'),
+    renderBadge('Q', 'Quit'),
+  ];
+
+  const row1 = ' ' + row1Hints.join(`  ${THEME.dim}│${RESET}  `);
+  const row2 = ' ' + row2Hints.join(`  ${THEME.dim}│${RESET}  `);
+
+  if (cols >= 90) {
+    const merged = [
+      renderBadge('Space', 'Play/Pause'),
+      renderBadge('1-4', 'Tabs'),
+      renderBadge('Enter', 'Play'),
+      renderBadge('A', 'Queue'),
+      renderBadge('/', 'Search'),
+      renderBadge('←/→', 'Seek'),
+      renderBadge('+/−', 'Vol'),
+      renderBadge('M', 'Mute'),
+      renderBadge('N/P', 'Next/Prev'),
+      renderBadge('Q', 'Quit'),
+    ].join(`  ${THEME.dim}│${RESET}  `);
+    return renderFullRow(merged, cols);
+  }
+
+  return renderFullRow(row1, cols);
 }
 
 function renderStatusLine(state: AppState, cols: number): string {
-  let msg = state.statusMessage || '';
+  const msg = state.statusMessage || '';
   const isError = msg.toLowerCase().includes('error') ||
                   msg.toLowerCase().includes('fail') ||
                   msg.toLowerCase().includes('unavailable');
-  const color = isError ? C_STATUS_MSG_ERR : C_STATUS_MSG_OK;
+  const color = isError ? THEME.error : (msg.includes('Playing') || msg.includes('Loaded') ? THEME.success : THEME.muted);
   const styled = msg ? `${color}${msg}${RESET}` : '';
   return renderFullRow(styled, cols);
 }
-
-// ─── AppView class ────────────────────────────────────────────────────────────
 
 export class AppView {
   private onKeyCallback: KeyHandler | null = null;
@@ -115,11 +160,10 @@ export class AppView {
     }
 
     this.resizeHandler = () => {
-      // Re-render will be triggered by App
+      // Handled in main App loop
     };
     process.stdout.on('resize', this.resizeHandler);
 
-    // Emergency crash safety: ensure terminal is restored
     process.on('uncaughtException', this.emergencyCleanup);
     process.on('unhandledRejection', this.emergencyCleanup);
   }
@@ -136,10 +180,12 @@ export class AppView {
     if (chunk === '\u0003') { this.onKeyCallback('Ctrl+C'); return; }
     if (chunk === '\x1b')   { this.onKeyCallback('Escape'); return; }
     if (chunk === '\x7f' || chunk === '\b') { this.onKeyCallback('Backspace'); return; }
-    if (chunk === '\x1b[A') { this.onKeyCallback('up');    return; }
-    if (chunk === '\x1b[B') { this.onKeyCallback('down');  return; }
+    if (chunk === '\t')     { this.onKeyCallback('Tab'); return; }
+    if (chunk === '\x1b[Z') { this.onKeyCallback('Shift+Tab'); return; }
+    if (chunk === '\x1b[A') { this.onKeyCallback('up'); return; }
+    if (chunk === '\x1b[B') { this.onKeyCallback('down'); return; }
     if (chunk === '\x1b[C') { this.onKeyCallback('right'); return; }
-    if (chunk === '\x1b[D') { this.onKeyCallback('left');  return; }
+    if (chunk === '\x1b[D') { this.onKeyCallback('left'); return; }
     if (chunk === '\r' || chunk === '\n') { this.onKeyCallback('Enter'); return; }
     if (chunk === ' ') { this.onKeyCallback('Space'); return; }
 
@@ -152,8 +198,8 @@ export class AppView {
 
     if (cols < 40 || rows < 10) {
       process.stdout.write(
-        `\x1b[H\x1b[2J${C_STATUS_MSG_ERR}Window too small (${cols}×${rows}). ` +
-        `Please expand to at least 40×10.${RESET}\n`
+        `\x1b[H\x1b[2J${THEME.error}Window too small (${cols}×${rows}). ` +
+        `Please resize to at least 40×10.${RESET}\n`
       );
       return;
     }
@@ -161,37 +207,84 @@ export class AppView {
     const output: string[] = [];
 
     // ── Header ────────────────────────────────────────────────────────────────
-    output.push(renderHeader(cols));
-
-    // ── Main panels ───────────────────────────────────────────────────────────
-    const panelHeight = Math.max(6, rows - 10);
-    const leftWidth   = Math.floor((cols - 3) / 2);
-    const rightWidth  = cols - 3 - leftWidth;
-
-    const leftLines  = renderSearchView(state, panelHeight, leftWidth);
-    const rightLines = renderNowPlaying(state, panelHeight, rightWidth);
-
-    for (let i = 0; i < panelHeight; i++) {
-      output.push(
-        renderSideRow(
-          leftLines[i]  || '',
-          rightLines[i] || '',
-          leftWidth,
-          rightWidth
-        )
-      );
+    output.push(renderTopBorder(cols));
+    const bannerLines = renderHeaderBanner(cols, rows);
+    for (const bLine of bannerLines) {
+      output.push(bLine);
     }
-
-    // ── Queue ─────────────────────────────────────────────────────────────────
     output.push(renderPanelSep(cols));
-    const queueLines = renderQueueView(state, cols - 4);
-    for (const qLine of queueLines) {
-      output.push(renderFullRow(qLine, cols));
+    output.push(renderNavTabs(state.currentView, cols));
+    output.push(renderPanelSep(cols));
+
+    // Calculate vertical budget
+    // header (border + banner + sep + nav + sep = ~5 rows)
+    // footer (sep + controls + status + border = 4 rows)
+    const fixedRows = output.length + 4;
+    const isWide = cols >= 88;
+
+    if (isWide && state.currentView !== 'nowPlaying') {
+      // Split view: Left = Active View (Home, Search, or Queue), Right = Now Playing
+      const leftWidth = Math.floor((cols - 3) / 2);
+      const rightWidth = cols - 3 - leftWidth;
+
+      // Bottom queue strip only if queue is not empty and we have enough rows (>= 25)
+      const showBottomQueue = rows >= 25 && state.currentView !== 'queue';
+      const queueStripRows = showBottomQueue ? 2 : 0;
+      const panelHeight = Math.max(6, rows - fixedRows - queueStripRows);
+
+      let leftLines: string[] = [];
+      if (state.currentView === 'home') {
+        leftLines = renderHomeView(state, panelHeight, leftWidth);
+      } else if (state.currentView === 'search') {
+        leftLines = renderSearchView(state, panelHeight, leftWidth);
+      } else if (state.currentView === 'queue') {
+        leftLines = renderQueueVertical(state, panelHeight, leftWidth);
+      }
+
+      const rightLines = renderNowPlaying(state, panelHeight, rightWidth);
+
+      for (let i = 0; i < panelHeight; i++) {
+        output.push(
+          renderSideRow(
+            leftLines[i] || '',
+            rightLines[i] || '',
+            leftWidth,
+            rightWidth
+          )
+        );
+      }
+
+      if (showBottomQueue) {
+        output.push(renderPanelSep(cols));
+        const qLines = renderQueueView(state, cols - 4);
+        for (const ql of qLines) {
+          output.push(renderFullRow(ql, cols));
+        }
+      }
+    } else {
+      // Full view or narrow screen
+      const panelWidth = cols - 4;
+      const panelHeight = Math.max(6, rows - fixedRows);
+
+      let lines: string[] = [];
+      if (state.currentView === 'home') {
+        lines = renderHomeView(state, panelHeight, panelWidth);
+      } else if (state.currentView === 'search') {
+        lines = renderSearchView(state, panelHeight, panelWidth);
+      } else if (state.currentView === 'queue') {
+        lines = renderQueueVertical(state, panelHeight, panelWidth);
+      } else {
+        lines = renderNowPlaying(state, panelHeight, panelWidth);
+      }
+
+      for (let i = 0; i < panelHeight; i++) {
+        output.push(renderFullRow(lines[i] || '', cols));
+      }
     }
 
     // Pad any remaining rows before footer
     while (output.length < rows - 4) {
-      output.push(`${C_BORDER}│${RESET}${' '.repeat(cols - 2)}${C_BORDER}│${RESET}`);
+      output.push(`${THEME.border}${BOX.vertical}${RESET}${' '.repeat(cols - 2)}${THEME.border}${BOX.vertical}${RESET}`);
     }
 
     // ── Footer ────────────────────────────────────────────────────────────────
@@ -200,7 +293,7 @@ export class AppView {
     output.push(renderStatusLine(state, cols));
     output.push(renderBottomBorder(cols));
 
-    // Render atomically
+    // Render atomically to screen
     process.stdout.write(`\x1b[H${output.join('\n')}`);
   }
 
@@ -217,7 +310,7 @@ export class AppView {
     if (this.resizeHandler) {
       process.stdout.removeListener('resize', this.resizeHandler);
     }
-    // Restore main screen buffer and show cursor
+    // Restore alternate screen buffer and show cursor
     process.stdout.write('\x1b[?1049l\x1b[?25h\n');
   }
 }

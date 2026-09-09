@@ -1,5 +1,5 @@
 import { config } from '../config/config.js';
-import { JamendoApiResponse, RawJamendoTrack, Track } from './types.js';
+import { DISCOVER_CATEGORIES, JamendoApiResponse, RawJamendoTrack, Track } from './types.js';
 import { JamendoApiError } from '../utils/errors.js';
 
 function decodeHtmlEntities(str: string): string {
@@ -41,7 +41,7 @@ export class JamendoClient {
     return this.clientId !== undefined ? this.clientId : config.jamendoClientId;
   }
 
-  public async searchTracks(query: string, limit: number = 20): Promise<Track[]> {
+  private async requestTracks(params: Record<string, string>): Promise<Track[]> {
     const effectiveClientId = this.getClientId();
     if (!effectiveClientId) {
       throw new JamendoApiError(
@@ -50,17 +50,14 @@ export class JamendoClient {
       );
     }
 
-    const trimmed = query.trim();
-    if (!trimmed) {
-      return [];
-    }
-
     const url = new URL(`${this.baseUrl}/tracks/`);
     url.searchParams.set('client_id', effectiveClientId);
     url.searchParams.set('format', 'json');
-    url.searchParams.set('search', trimmed);
-    url.searchParams.set('limit', String(Math.max(1, Math.min(limit, 100))));
     url.searchParams.set('audioformat', 'mp32');
+
+    for (const [key, value] of Object.entries(params)) {
+      url.searchParams.set(key, value);
+    }
 
     let response: Response;
     try {
@@ -105,6 +102,31 @@ export class JamendoClient {
     return data.results
       .filter((item) => item && typeof item.audio === 'string' && item.audio.length > 0)
       .map(normalizeJamendoTrack);
+  }
+
+  public async searchTracks(query: string, limit: number = 20): Promise<Track[]> {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      return [];
+    }
+
+    const clampedLimit = String(Math.max(1, Math.min(limit, 100)));
+    return this.requestTracks({
+      search: trimmed,
+      limit: clampedLimit,
+    });
+  }
+
+  public async getDiscoverTracks(categoryKey: string = 'featured', limit: number = 20): Promise<Track[]> {
+    const category = DISCOVER_CATEGORIES.find((c) => c.key === categoryKey) || DISCOVER_CATEGORIES[0];
+    const clampedLimit = String(Math.max(1, Math.min(limit, 100)));
+
+    const params: Record<string, string> = {
+      limit: clampedLimit,
+      ...category.params,
+    };
+
+    return this.requestTracks(params);
   }
 }
 

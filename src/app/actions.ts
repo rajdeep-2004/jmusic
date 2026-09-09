@@ -1,7 +1,7 @@
-import { AppState } from './state.js';
+import { AppState, AppViewMode } from './state.js';
 import { JamendoClient } from '../api/jamendo.js';
 import { Player } from '../player/Player.js';
-import { Track } from '../api/types.js';
+import { DISCOVER_CATEGORIES, Track } from '../api/types.js';
 import { QueueManager } from '../queue/QueueManager.js';
 import { DEFAULT_SEEK_SECONDS } from '../config/config.js';
 import { formatTime } from '../utils/formatTime.js';
@@ -329,6 +329,209 @@ export async function toggleMuteAction(
     } catch (err: any) {
       state.statusMessage = `Unmute failed: ${err?.message || err}`;
     }
+  }
+  onUpdate();
+}
+
+export async function loadDiscoverTracks(
+  state: AppState,
+  client: JamendoClient,
+  categoryKey: string = 'featured',
+  onUpdate: () => void
+): Promise<void> {
+  state.isDiscoverLoading = true;
+  state.discoverCategory = categoryKey;
+  const catObj = DISCOVER_CATEGORIES.find((c) => c.key === categoryKey) || DISCOVER_CATEGORIES[0];
+  state.statusMessage = `Loading ${catObj.name} tracks from Jamendo...`;
+  onUpdate();
+
+  try {
+    const tracks = await client.getDiscoverTracks(categoryKey);
+    state.discoverTracks = tracks;
+    state.discoverSelectedIndex = 0;
+    state.discoverSelectedTrack = tracks.length > 0 ? tracks[0] : null;
+    state.statusMessage = `Loaded ${tracks.length} tracks in "${catObj.name}". Press Enter to play, A to queue.`;
+  } catch (err: any) {
+    state.discoverTracks = [];
+    state.discoverSelectedIndex = 0;
+    state.discoverSelectedTrack = null;
+    state.statusMessage = `Failed loading ${catObj.name}: ${err?.message || err}`;
+  } finally {
+    state.isDiscoverLoading = false;
+    onUpdate();
+  }
+}
+
+export async function switchCategoryAction(
+  state: AppState,
+  client: JamendoClient,
+  categoryKey: string,
+  onUpdate: () => void
+): Promise<void> {
+  await loadDiscoverTracks(state, client, categoryKey, onUpdate);
+}
+
+export async function cycleCategoryAction(
+  state: AppState,
+  client: JamendoClient,
+  direction: 1 | -1,
+  onUpdate: () => void
+): Promise<void> {
+  const currentIdx = DISCOVER_CATEGORIES.findIndex((c) => c.key === state.discoverCategory);
+  const nextIdx = (currentIdx + direction + DISCOVER_CATEGORIES.length) % DISCOVER_CATEGORIES.length;
+  const nextCategory = DISCOVER_CATEGORIES[nextIdx];
+  await switchCategoryAction(state, client, nextCategory.key, onUpdate);
+}
+
+export function switchViewAction(
+  state: AppState,
+  view: AppViewMode,
+  onUpdate: () => void
+): void {
+  state.currentView = view;
+  const viewNames: Record<AppViewMode, string> = {
+    home: 'Discover',
+    search: 'Search',
+    queue: 'Queue',
+    nowPlaying: 'Now Playing',
+  };
+  state.statusMessage = `View: ${viewNames[view]}. Press 1-4 or Tab to switch views.`;
+  onUpdate();
+}
+
+export function cycleViewAction(state: AppState, onUpdate: () => void): void {
+  const views: AppViewMode[] = ['home', 'search', 'queue', 'nowPlaying'];
+  const curIdx = views.indexOf(state.currentView);
+  const nextIdx = (curIdx + 1) % views.length;
+  switchViewAction(state, views[nextIdx], onUpdate);
+}
+
+export function moveActiveSelectionUp(state: AppState, onUpdate: () => void): void {
+  if (state.currentView === 'home') {
+    if (state.discoverTracks.length === 0) return;
+    if (state.discoverSelectedIndex > 0) {
+      state.discoverSelectedIndex -= 1;
+      state.discoverSelectedTrack = state.discoverTracks[state.discoverSelectedIndex];
+      onUpdate();
+    }
+  } else if (state.currentView === 'search') {
+    moveSelectionUp(state, onUpdate);
+  } else if (state.currentView === 'queue') {
+    if (state.queue.length === 0) return;
+    if (state.queueSelectedIndex > 0) {
+      state.queueSelectedIndex -= 1;
+      onUpdate();
+    }
+  }
+}
+
+export function moveActiveSelectionDown(state: AppState, onUpdate: () => void): void {
+  if (state.currentView === 'home') {
+    if (state.discoverTracks.length === 0) return;
+    if (state.discoverSelectedIndex < state.discoverTracks.length - 1) {
+      state.discoverSelectedIndex += 1;
+      state.discoverSelectedTrack = state.discoverTracks[state.discoverSelectedIndex];
+      onUpdate();
+    }
+  } else if (state.currentView === 'search') {
+    moveSelectionDown(state, onUpdate);
+  } else if (state.currentView === 'queue') {
+    if (state.queue.length === 0) return;
+    if (state.queueSelectedIndex < state.queue.length - 1) {
+      state.queueSelectedIndex += 1;
+      onUpdate();
+    }
+  }
+}
+
+export async function playActiveSelectionAction(
+  state: AppState,
+  player: Player,
+  onUpdate: () => void,
+  queueManager?: QueueManager
+): Promise<void> {
+  if (state.currentView === 'home') {
+    if (state.discoverSelectedTrack) {
+      await playTrackAction(state, player, state.discoverSelectedTrack, onUpdate, queueManager);
+    } else {
+      state.statusMessage = 'No track selected in Discover.';
+      onUpdate();
+    }
+  } else if (state.currentView === 'search') {
+    if (state.selectedTrack) {
+      await playTrackAction(state, player, state.selectedTrack, onUpdate, queueManager);
+    } else {
+      state.statusMessage = 'No track selected in Search.';
+      onUpdate();
+    }
+  } else if (state.currentView === 'queue') {
+    if (queueManager && !queueManager.isEmpty()) {
+      const track = state.queue[state.queueSelectedIndex];
+      if (track) {
+        queueManager.setCurrentIndex(state.queueSelectedIndex);
+        state.queueIndex = state.queueSelectedIndex;
+        await playTrackAction(state, player, track, onUpdate, queueManager);
+      }
+    } else {
+      state.statusMessage = 'Queue is empty.';
+      onUpdate();
+    }
+  } else if (state.currentView === 'nowPlaying') {
+    await togglePlayPauseAction(state, player, onUpdate, queueManager);
+  }
+}
+
+export function addActiveSelectionToQueueAction(
+  state: AppState,
+  queueManager: QueueManager,
+  onUpdate: () => void
+): void {
+  if (state.currentView === 'home') {
+    if (state.discoverSelectedTrack) {
+      addToQueueAction(state, queueManager, state.discoverSelectedTrack, onUpdate);
+    } else {
+      state.statusMessage = 'No track selected to add to queue.';
+      onUpdate();
+    }
+  } else if (state.currentView === 'search') {
+    if (state.selectedTrack) {
+      addToQueueAction(state, queueManager, state.selectedTrack, onUpdate);
+    } else {
+      state.statusMessage = 'No track selected to add to queue.';
+      onUpdate();
+    }
+  } else if (state.currentView === 'queue') {
+    state.statusMessage = 'Track is already in queue.';
+    onUpdate();
+  } else if (state.currentView === 'nowPlaying') {
+    if (state.currentTrack) {
+      addToQueueAction(state, queueManager, state.currentTrack, onUpdate);
+    }
+  }
+}
+
+export function removeSelectedFromQueueAction(
+  state: AppState,
+  queueManager: QueueManager,
+  onUpdate: () => void
+): void {
+  if (queueManager.isEmpty()) {
+    state.statusMessage = 'Queue is already empty.';
+    onUpdate();
+    return;
+  }
+
+  const removedTrack = state.queue[state.queueSelectedIndex];
+  const removed = queueManager.removeTrack(state.queueSelectedIndex);
+  if (removed) {
+    state.queue = queueManager.getTracks();
+    state.queueIndex = queueManager.getCurrentIndex();
+    if (state.queueSelectedIndex >= state.queue.length) {
+      state.queueSelectedIndex = Math.max(0, state.queue.length - 1);
+    }
+    state.statusMessage = removedTrack
+      ? `Removed "${removedTrack.title}" from queue.`
+      : 'Removed track from queue.';
   }
   onUpdate();
 }

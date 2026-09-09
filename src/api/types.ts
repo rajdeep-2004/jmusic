@@ -57,3 +57,18 @@ export interface JamendoSearchParams {
   limit?: number;
   offset?: number;
 }
+
+export interface DiscoverCategory {
+  key: string;
+  name: string;
+  params: Record<string, string>;
+}
+
+export const DISCOVER_CATEGORIES: DiscoverCategory[] = [
+  { key: 'featured', name: 'Featured', params: { order: 'popularity_week' } },
+  { key: 'chill', name: 'Chill', params: { tags: 'chill', order: 'popularity_total' } },
+  { key: 'electronic', name: 'Electronic', params: { tags: 'electronic', order: 'popularity_total' } },
+  { key: 'jazz', name: 'Jazz', params: { tags: 'jazz', order: 'popularity_total' } },
+  { key: 'rock', name: 'Rock', params: { tags: 'rock', order: 'popularity_total' } },
+  { key: 'recent', name: 'Recently Added', params: { order: 'releasedate_desc' } },
+];

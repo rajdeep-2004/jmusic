@@ -22,7 +22,42 @@ const fg = (r: number, g: number, b: number) =>
 const bg = (r: number, g: number, b: number) =>
   `\x1b[48;2;${r};${g};${b}m`;
 
-// ─── Palette ──────────────────────────────────────────────────────────────────
+// ─── Semantic Theme ─────────────────────────────────────────────────────────
+export const THEME = {
+  primary: fg(248, 250, 252),      // slate-50 (clean bright white)
+  accent: fg(56, 189, 248),        // sky-400 (electric cyan / sky)
+  accentBg: bg(2, 132, 199),       // sky-600
+  muted: fg(148, 163, 184),        // slate-400 (secondary metadata)
+  dim: fg(100, 116, 139),          // slate-500
+  success: fg(74, 222, 128),       // green-400 (playing / success)
+  warning: fg(251, 191, 36),       // amber-400 (buffering / warning)
+  error: fg(248, 113, 113),        // red-400 (error / alert)
+  selectedBg: bg(37, 99, 235),     // blue-600
+  selectedFg: fg(255, 255, 255),   // white
+  border: fg(71, 85, 105),         // slate-600
+  borderActive: fg(56, 189, 248),  // sky-400
+  title: `${BOLD}${fg(255, 255, 255)}`,
+  tagBg: bg(30, 41, 59),           // slate-800
+  badgeKeyBg: bg(51, 65, 85),      // slate-700
+  badgeKeyFg: fg(241, 245, 249),   // slate-100
+};
+
+// ─── Box-Drawing Unicode Constants (Rounded Aesthetic) ──────────────────────
+export const BOX = {
+  topLeft: '╭',
+  topRight: '╮',
+  bottomLeft: '╰',
+  bottomRight: '╯',
+  horizontal: '─',
+  vertical: '│',
+  teeLeft: '├',
+  teeRight: '┤',
+  teeTop: '┬',
+  teeBottom: '┴',
+  cross: '┼',
+};
+
+// ─── Palette (Backward Compatibility) ───────────────────────────────────────
 // Header / borders
 export const C_BORDER      = fg(75, 85, 99);     // slate-500
 export const C_HEADER_BG   = bg(30, 41, 59);     // slate-800
@@ -84,7 +119,7 @@ export function colored(color: string, text: string): string {
 
 /** Render a styled keyboard hint: [KEY] description */
 export function keyHint(key: string, desc: string): string {
-  return `${C_KEY_BG}${C_KEY_FG} ${key} ${RESET}${C_KEY_DESC}${desc}${RESET}`;
+  return `${THEME.badgeKeyBg}${THEME.badgeKeyFg}${BOLD} ${key} ${RESET}${THEME.muted} ${desc}${RESET}`;
 }
 
 /** Strip all ANSI escape codes to get the visible character length. */

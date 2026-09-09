@@ -2,20 +2,17 @@ import { AppState } from '../app/state.js';
 import { renderProgressBar } from './ProgressBar.js';
 import {
   RESET, BOLD, DIM,
-  C_BORDER, C_SECTION_FG,
-  C_NP_LABEL, C_NP_VALUE, C_NP_TITLE, C_NP_ARTIST, C_NP_ALBUM,
-  C_STATUS_PLAY, C_STATUS_PAUSE, C_STATUS_STOP, C_STATUS_BUF, C_STATUS_ERR,
-  C_VOL_ON, C_VOL_MUTED,
-  stripAnsi,
+  THEME, BOX,
+  padEndAnsi, stripAnsi,
 } from './colors.js';
 
 function statusColor(status: string): string {
   switch (status) {
-    case 'playing':   return C_STATUS_PLAY;
-    case 'paused':    return C_STATUS_PAUSE;
-    case 'buffering': return C_STATUS_BUF;
-    case 'error':     return C_STATUS_ERR;
-    default:          return C_STATUS_STOP;
+    case 'playing':   return THEME.success;
+    case 'paused':    return THEME.warning;
+    case 'buffering': return THEME.warning;
+    case 'error':     return THEME.error;
+    default:          return THEME.dim;
   }
 }
 
@@ -36,55 +33,86 @@ export function renderNowPlaying(state: AppState, maxRows: number, maxWidth: num
   const labelLen = stripAnsi(sectionLabel);
   const divLen = Math.max(0, maxWidth - labelLen - 2);
   lines.push(
-    `${C_BORDER}──${RESET}${C_SECTION_FG}${sectionLabel}${RESET}${C_BORDER}${'─'.repeat(divLen)}${RESET}`
+    `${THEME.border}${BOX.horizontal}${BOX.horizontal}${RESET}${THEME.title}${sectionLabel}${RESET}${THEME.border}${BOX.horizontal.repeat(divLen)}${RESET}`
   );
 
   const icon   = statusIcon(state.playbackStatus);
   const sColor = statusColor(state.playbackStatus);
   const tag    = `${sColor}${BOLD}${icon} ${state.playbackStatus.toUpperCase()}${RESET}`;
 
-  if (!state.currentTrack || state.playbackStatus === 'stopped') {
-    lines.push(`  ${DIM}No track currently playing.${RESET}`);
-    lines.push(`  ${C_NP_LABEL}Status:${RESET} ${tag}`);
-    while (lines.length < maxRows) lines.push('');
-    return lines.slice(0, maxRows);
-  }
-
-  if (state.playbackStatus === 'buffering') {
-    lines.push(`  ${C_NP_TITLE}${state.currentTrack.title}${RESET}`.slice(0, maxWidth + 30));
-    lines.push(`  ${C_NP_ARTIST}${state.currentTrack.artist}${RESET}`.slice(0, maxWidth + 20));
-    lines.push(`  ${C_NP_LABEL}Status:${RESET} ${tag}`);
-    while (lines.length < maxRows) lines.push('');
-    return lines.slice(0, maxRows);
-  }
-
-  if (state.playbackStatus === 'error') {
-    lines.push(`  ${C_NP_TITLE}${state.currentTrack.title}${RESET}`.slice(0, maxWidth + 30));
-    lines.push(`  ${C_NP_ARTIST}${state.currentTrack.artist}${RESET}`.slice(0, maxWidth + 20));
-    lines.push(`  ${C_NP_LABEL}Status:${RESET} ${tag}`);
-    while (lines.length < maxRows) lines.push('');
-    return lines.slice(0, maxRows);
-  }
-
-  // Playing or Paused
-  const titleLine  = `  ${C_NP_LABEL}Title :${RESET}  ${C_NP_TITLE}${state.currentTrack.title}${RESET}`;
-  const artistLine = `  ${C_NP_LABEL}Artist:${RESET}  ${C_NP_ARTIST}${state.currentTrack.artist}${RESET}`;
-  lines.push(titleLine);
-  lines.push(artistLine);
-
-  if (state.currentTrack.album) {
-    lines.push(`  ${C_NP_LABEL}Album :${RESET}  ${C_NP_ALBUM}${state.currentTrack.album}${RESET}`);
-  }
-
-  const volColor = state.volume === 0 ? C_VOL_MUTED : C_VOL_ON;
+  const volColor = state.volume === 0 ? THEME.error : THEME.success;
   const volLabel = state.volume === 0 ? '🔇 MUTED' : `🔊 ${state.volume}%`;
-  const statusLine = `  ${C_NP_LABEL}Status:${RESET} ${tag}   ${volColor}${BOLD}${volLabel}${RESET}`;
-  lines.push(statusLine);
+  const volBadge = `${volColor}${BOLD}${volLabel}${RESET}`;
+
+  if (!state.currentTrack || state.playbackStatus === 'stopped') {
+    lines.push('');
+    const emptyBox = [
+      `${THEME.border}${BOX.topLeft}${BOX.horizontal.repeat(16)}${BOX.topRight}${RESET}`,
+      `${THEME.border}${BOX.vertical}${RESET}  ${THEME.accent}♪ NO TRACK ♪${RESET}  ${THEME.border}${BOX.vertical}${RESET}`,
+      `${THEME.border}${BOX.bottomLeft}${BOX.horizontal.repeat(16)}${BOX.bottomRight}${RESET}`,
+    ];
+    for (const bLine of emptyBox) {
+      const leftPad = Math.max(0, Math.floor((maxWidth - stripAnsi(bLine)) / 2));
+      lines.push(' '.repeat(leftPad) + bLine);
+    }
+    lines.push('');
+    const statusLine = `Status: ${tag}    ${volBadge}`;
+    const leftPadStatus = Math.max(0, Math.floor((maxWidth - stripAnsi(statusLine)) / 2));
+    lines.push(' '.repeat(leftPadStatus) + `Status: ${tag}    ${volBadge}`);
+    lines.push('');
+    const hint = `${THEME.dim}Select a song from Discover or Search and press Enter${RESET}`;
+    const leftPadHint = Math.max(0, Math.floor((maxWidth - stripAnsi(hint)) / 2));
+    lines.push(' '.repeat(leftPadHint) + hint);
+    while (lines.length < maxRows) lines.push('');
+    return lines.slice(0, maxRows);
+  }
+
+  // Active track details
   lines.push('');
 
+  // Track Title
+  const rawTitle = state.currentTrack.title;
+  const titleText = `${THEME.title}${rawTitle.length > maxWidth - 4 ? rawTitle.slice(0, maxWidth - 5) + '…' : rawTitle}${RESET}`;
+  const padTitle = Math.max(0, Math.floor((maxWidth - stripAnsi(titleText)) / 2));
+  lines.push(' '.repeat(padTitle) + titleText);
+
+  // Artist
+  const rawArtist = state.currentTrack.artist;
+  const artistText = `${THEME.accent}${rawArtist.length > maxWidth - 4 ? rawArtist.slice(0, maxWidth - 5) + '…' : rawArtist}${RESET}`;
+  const padArtist = Math.max(0, Math.floor((maxWidth - stripAnsi(artistText)) / 2));
+  lines.push(' '.repeat(padArtist) + artistText);
+
+  // Album if available
+  if (state.currentTrack.album) {
+    const rawAlbum = `Album: ${state.currentTrack.album}`;
+    const albumText = `${THEME.muted}${rawAlbum.length > maxWidth - 4 ? rawAlbum.slice(0, maxWidth - 5) + '…' : rawAlbum}${RESET}`;
+    const padAlbum = Math.max(0, Math.floor((maxWidth - stripAnsi(albumText)) / 2));
+    lines.push(' '.repeat(padAlbum) + albumText);
+  }
+
+  lines.push('');
+
+  // Transport buttons display
+  const playSymbol = state.playbackStatus === 'playing' ? `${THEME.accent}❚❚${RESET}` : `${THEME.success}▶${RESET}`;
+  const transport = `${THEME.dim}◀◀${RESET}    ${playSymbol}    ${THEME.dim}▶▶${RESET}`;
+  const padTransport = Math.max(0, Math.floor((maxWidth - stripAnsi(transport)) / 2));
+  lines.push(' '.repeat(padTransport) + transport);
+
+  lines.push('');
+
+  // Progress bar
   const barWidth = Math.max(10, maxWidth - 22);
   const totalDuration = state.duration > 0 ? state.duration : (state.currentTrack.duration || 0);
-  lines.push(`  ${renderProgressBar(state.currentPosition, totalDuration, barWidth)}`);
+  const progBar = renderProgressBar(state.currentPosition, totalDuration, barWidth);
+  const padBar = Math.max(0, Math.floor((maxWidth - stripAnsi(progBar)) / 2));
+  lines.push(' '.repeat(padBar) + progBar);
+
+  lines.push('');
+
+  // Status & Volume footer line
+  const metaLine = `${tag}       ${volBadge}`;
+  const padMeta = Math.max(0, Math.floor((maxWidth - stripAnsi(metaLine)) / 2));
+  lines.push(' '.repeat(padMeta) + metaLine);
 
   while (lines.length < maxRows) lines.push('');
   return lines.slice(0, maxRows);
