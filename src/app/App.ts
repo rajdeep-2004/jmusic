@@ -139,9 +139,6 @@ export class App {
       if (typeof vol === 'number' && vol >= 0) {
         this.state.volume = vol;
       }
-      if (this.state.playbackStatus === 'playing') {
-        this.state.animTick = (this.state.animTick + 1) % 10000;
-      }
       this.render();
     } catch {
       // Ignore transient query errors during transitions
@@ -224,21 +221,38 @@ export class App {
       return;
     }
 
-    // Tab key: Consistently cycles through views (1: Discover -> 2: Search -> 3: Queue -> 4: Now Playing)
+    // Tab key: In Discover, cycles genres; in other views, cycles views
     if (key === 'Tab') {
-      cycleViewAction(this.state, this.render);
+      if (this.state.currentView === 'home') {
+        await cycleCategoryAction(this.state, this.client, 1, this.render);
+      } else {
+        cycleViewAction(this.state, this.render);
+      }
       return;
     }
 
-    // Category navigation shortcuts inside Discover (C, ], Shift+Tab forward; [ backward)
-    if (key === 'c' || key === 'C' || key === ']' || key === 'Shift+Tab') {
-      await cycleCategoryAction(this.state, this.client, 1, this.render);
+    if (key === 'Shift+Tab') {
+      if (this.state.currentView === 'home') {
+        await cycleCategoryAction(this.state, this.client, -1, this.render);
+      } else {
+        switchViewAction(this.state, 'home', this.render);
+      }
       return;
+    }
+
+    // Category navigation shortcuts inside Discover (C, ] forward; [ backward)
+    if (key === 'c' || key === 'C' || key === ']') {
+      if (this.state.currentView === 'home') {
+        await cycleCategoryAction(this.state, this.client, 1, this.render);
+        return;
+      }
     }
 
     if (key === '[') {
-      await cycleCategoryAction(this.state, this.client, -1, this.render);
-      return;
+      if (this.state.currentView === 'home') {
+        await cycleCategoryAction(this.state, this.client, -1, this.render);
+        return;
+      }
     }
 
     // Search prompt trigger

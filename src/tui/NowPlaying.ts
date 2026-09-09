@@ -1,6 +1,5 @@
 import { AppState } from '../app/state.js';
 import { renderProgressBar } from './ProgressBar.js';
-import { renderDancingCat } from './DancingCat.js';
 import {
   RESET, BOLD, DIM,
   THEME, BOX,
@@ -44,23 +43,6 @@ export function renderNowPlaying(state: AppState, maxRows: number, maxWidth: num
   const volColor = state.volume === 0 ? THEME.error : THEME.success;
   const volLabel = state.volume === 0 ? '🔇 MUTED' : `🔊 ${state.volume}%`;
   const volBadge = `${volColor}${BOLD}${volLabel}${RESET}`;
-
-  // Check if we have room for the dancing cat (needs ~4 rows)
-  const showDancingCat = maxRows >= 14;
-
-  if (showDancingCat) {
-    const catLines = renderDancingCat(state.playbackStatus, state.animTick || 0, maxWidth);
-    for (const cl of catLines) {
-      lines.push(cl);
-    }
-  } else {
-    // Compact 1-line cat icon
-    const compactCat = state.playbackStatus === 'playing'
-      ? `${THEME.cat}🎧( ^.^ )ﾉ${RESET} ${THEME.note}♪ ♫${RESET}`
-      : `${THEME.cat}( -.- ) zZ${RESET}`;
-    const leftPadCat = Math.max(0, Math.floor((maxWidth - stripAnsi(compactCat)) / 2));
-    lines.push(' '.repeat(leftPadCat) + compactCat);
-  }
 
   if (!state.currentTrack || state.playbackStatus === 'stopped') {
     lines.push('');

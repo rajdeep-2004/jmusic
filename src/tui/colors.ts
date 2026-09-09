@@ -40,9 +40,6 @@ export const THEME = {
   tagBg: bg(43, 37, 32),           // Very dark warm coffee
   badgeKeyBg: bg(61, 53, 45),      // Deep mocha badge
   badgeKeyFg: fg(245, 235, 224),   // Light beige text
-  cat: fg(235, 211, 186),          // Calico Cream
-  catPaws: fg(245, 203, 167),      // Peach paws
-  note: fg(250, 215, 160),         // Golden melody notes
 };
 
 // ─── Box-Drawing Unicode Constants (Rounded Aesthetic) ──────────────────────

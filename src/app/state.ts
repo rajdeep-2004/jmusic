@@ -29,7 +29,6 @@ export interface AppState {
   inputMode: InputMode;
   searchBuffer: string;
   isLoading: boolean;
-  animTick: number;
 }
 
 export function createInitialState(): AppState {
@@ -58,6 +57,5 @@ export function createInitialState(): AppState {
     inputMode: 'normal',
     searchBuffer: '',
     isLoading: false,
-    animTick: 0,
   };
 }
