@@ -97,14 +97,25 @@ export function computeLayout(cols: number, rows: number): LayoutDimensions {
   }
 
   // ── 3-column widths ────────────────────────────────────────────────────────
-  // Sidebar: fixed at 18 for 80-119 cols, 20 for 120+
-  const sidebarWidth = cols >= 120 ? 20 : 18;
+  // Sidebar: compact navigation and genre list
+  const sidebarWidth = cols >= 140 ? 22 : cols >= 100 ? 20 : 18;
 
-  // Now Playing: fixed at 26 for 80-119 cols, 30 for 120+
-  const nowPlayingWidth = cols >= 120 ? 30 : 26;
+  // Now Playing (Right Pane):
+  // Responsive sizing giving generous breathing room (~30-33% of total width)
+  // so track info, progress bar, controls, and visual artwork can shine.
+  let nowPlayingWidth: number;
+  if (cols < 100) {
+    nowPlayingWidth = 28;
+  } else if (cols < 130) {
+    nowPlayingWidth = 36;
+  } else if (cols < 160) {
+    nowPlayingWidth = 46;
+  } else {
+    nowPlayingWidth = Math.min(62, Math.max(48, Math.floor(cols * 0.32)));
+  }
 
-  // Main takes the rest.  Outer box uses 2 chars (╭╮ / ╰╯), plus 2 inner
-  // vertical separators between the three panels = 4 border chars total.
+  // Main takes the rest. 4 border characters:
+  // outer left (1) + divider 1 (1) + divider 2 (1) + outer right (1) = 4
   const mainWidth = Math.max(20, cols - sidebarWidth - nowPlayingWidth - 4);
 
   // ── Queue strip ────────────────────────────────────────────────────────────

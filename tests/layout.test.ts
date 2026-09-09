@@ -17,18 +17,18 @@ describe('Layout System', () => {
     const layout = computeLayout(80, 30);
     assert.equal(layout.isWide, true);
     assert.equal(layout.sidebarWidth, 18);
-    assert.equal(layout.nowPlayingWidth, 26);
-    // mainWidth = 80 - 18 - 26 - 4 = 32
-    assert.equal(layout.mainWidth, 32);
+    assert.equal(layout.nowPlayingWidth, 28);
+    // mainWidth = 80 - 18 - 28 - 4 = 30
+    assert.equal(layout.mainWidth, 30);
   });
 
   test('uses wider panels at 120+ cols', () => {
     const layout = computeLayout(120, 30);
     assert.equal(layout.isWide, true);
     assert.equal(layout.sidebarWidth, 20);
-    assert.equal(layout.nowPlayingWidth, 30);
-    // mainWidth = 120 - 20 - 30 - 4 = 66
-    assert.equal(layout.mainWidth, 66);
+    assert.equal(layout.nowPlayingWidth, 36);
+    // mainWidth = 120 - 20 - 36 - 4 = 60
+    assert.equal(layout.mainWidth, 60);
   });
 
   test('headerHeight is 3, footerHeight is 4 (all fixed frame rows)', () => {

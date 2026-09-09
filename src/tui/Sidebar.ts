@@ -47,16 +47,14 @@ const CATEGORY_ICONS: Record<string, string> = {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
- * Pad a content string to exactly `innerWidth` visible characters,
- * then wrap it in the sidebar's left and right border chars.
+ * Pad a content string to exactly `innerWidth` visible characters.
  */
 function sidebarRow(content: string, innerWidth: number): string {
-  const padded = padEndAnsi(content, innerWidth);
-  return `${THEME.border}${BOX.vertical}${RESET}${padded}${THEME.border}${BOX.vertical}${RESET}`;
+  return padEndAnsi(content, innerWidth);
 }
 
 function divider(innerWidth: number): string {
-  return `${THEME.border}${BOX.teeLeft}${BOX.horizontal.repeat(innerWidth)}${BOX.teeRight}${RESET}`;
+  return `${THEME.border}${BOX.horizontal.repeat(innerWidth)}${RESET}`;
 }
 
 // ─── Renderer ────────────────────────────────────────────────────────────────
@@ -67,22 +65,21 @@ function divider(innerWidth: number): string {
  *
  * @param state      - Current application state
  * @param height     - Number of rows to fill (bodyHeight)
- * @param totalWidth - Total sidebar column width including border chars (sidebarWidth)
+ * @param totalWidth - Total sidebar content width (sidebarWidth)
  */
 export function renderSidebar(
   state: AppState,
   height: number,
   totalWidth: number
 ): string[] {
-  // Inner content width = totalWidth minus the 2 vertical border chars
-  const inner = Math.max(4, totalWidth - 2);
+  const inner = Math.max(4, totalWidth);
   const lines: string[] = [];
 
   // ── Logo mark ──────────────────────────────────────────────────────────────
-  const logoLine1 = `${THEME.accent}${BOLD} ♪ JMusic${RESET}`;
+  const logoLine1 = ` ${THEME.accent}${BOLD}♪ JMusic${RESET}`;
   lines.push(sidebarRow(logoLine1, inner));
 
-  const tagLine = `${THEME.dim} music for devs${RESET}`;
+  const tagLine = ` ${THEME.dim}music for devs${RESET}`;
   if (stripAnsi(tagLine) <= inner) {
     lines.push(sidebarRow(tagLine, inner));
   } else {
@@ -109,14 +106,9 @@ export function renderSidebar(
     let row: string;
     if (isActive) {
       const content = ` ${item.icon} ${truncLabel}`;
-      const padded = padEndAnsi(
-        `${THEME.selectedBg}${THEME.selectedFg}${BOLD}${content}${RESET}`,
-        inner
-      );
-      // The padded call doesn't know about the bg color, so extend manually
       const visLen = stripAnsi(content);
       const pad = Math.max(0, inner - visLen);
-      row = `${THEME.border}${BOX.vertical}${RESET}${THEME.selectedBg}${THEME.selectedFg}${BOLD}${content}${' '.repeat(pad)}${RESET}${THEME.border}${BOX.vertical}${RESET}`;
+      row = `${THEME.selectedBg}${THEME.selectedFg}${BOLD}${content}${' '.repeat(pad)}${RESET}`;
     } else {
       const content = ` ${THEME.dim}${item.key}${RESET} ${THEME.muted}${truncLabel}${RESET}`;
       row = sidebarRow(content, inner);
@@ -141,7 +133,7 @@ export function renderSidebar(
       const visLen = stripAnsi(content);
       const pad = Math.max(0, inner - visLen);
       lines.push(
-        `${THEME.border}${BOX.vertical}${RESET}${THEME.selectedBg}${THEME.accent}${BOLD}${content}${' '.repeat(pad)}${RESET}${THEME.border}${BOX.vertical}${RESET}`
+        `${THEME.selectedBg}${THEME.accent}${BOLD}${content}${' '.repeat(pad)}${RESET}`
       );
     } else {
       const content = ` ${THEME.dim}${icon}${RESET} ${THEME.muted}${cat.name}${RESET}`;

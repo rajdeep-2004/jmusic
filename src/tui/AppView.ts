@@ -55,7 +55,7 @@ function threePanelSep(
 ): string {
   // We use ┼ at column intersections during mid-body separators
   const dash = BOX.horizontal;
-  const left  = sidebarWidth;       // position of first inner vertical
+  const left  = sidebarWidth + 1;           // position of first inner vertical
   const right = cols - nowPlayingWidth - 2; // position of second inner vertical
 
   let row = BOX.teeLeft;
@@ -89,9 +89,9 @@ function threeCol(
   mainWidth: number,
   nowPlayingWidth: number
 ): string {
-  const s = padEndAnsi(sidebar,    sidebarWidth - 2);  // -2 for sidebar's own borders
+  const s = padEndAnsi(sidebar,    sidebarWidth);
   const m = padEndAnsi(main,       mainWidth);
-  const n = padEndAnsi(nowPlaying, nowPlayingWidth - 2); // -2 for now-playing's own borders
+  const n = padEndAnsi(nowPlaying, nowPlayingWidth);
   return (
     `${THEME.border}${BOX.vertical}${RESET}` +
     s +
@@ -110,8 +110,8 @@ function twoColRight(
   sidebarWidth: number,
   rightWidth: number
 ): string {
-  const s = padEndAnsi(sidebar, sidebarWidth - 2);
-  const r = padEndAnsi(right, rightWidth);
+  const s = padEndAnsi(sidebar, sidebarWidth);
+  const r = padEndAnsi(right,   rightWidth);
   return (
     `${THEME.border}${BOX.vertical}${RESET}` +
     s +
@@ -324,7 +324,7 @@ export class AppView {
 
     // ── Render panel contents ──────────────────────────────────────────────
     const sidebarLines   = renderSidebar(state, panelHeight, sidebarWidth);
-    const nowPlayLines   = renderNowPlaying(state, panelHeight, nowPlayingWidth - 2);
+    const nowPlayLines   = renderNowPlaying(state, panelHeight, nowPlayingWidth);
 
     let mainLines: string[];
     if (state.currentView === 'queue') {
@@ -361,8 +361,8 @@ export class AppView {
       const queueLines = renderQueueStrip(state, mainWidth, queueStripTracks + 1);
       // The strip shares the sidebar+nowplaying vertical space:
       // sidebar continues blank, nowplaying continues blank
-      const blankSidebar = ' '.repeat(sidebarWidth - 2);
-      const blankNP      = ' '.repeat(nowPlayingWidth - 2);
+      const blankSidebar = ' '.repeat(sidebarWidth);
+      const blankNP      = ' '.repeat(nowPlayingWidth);
 
       for (let i = 0; i < queueLines.length; i++) {
         const ql = padEndAnsi(queueLines[i] || '', mainWidth);
@@ -383,11 +383,11 @@ export class AppView {
     const remaining = Math.max(0, bodyHeight - usedBodyRows);
     const blankRow =
       `${THEME.border}${BOX.vertical}${RESET}` +
-      ' '.repeat(sidebarWidth - 2) +
+      ' '.repeat(sidebarWidth) +
       `${THEME.border}${BOX.vertical}${RESET}` +
       ' '.repeat(mainWidth) +
       `${THEME.border}${BOX.vertical}${RESET}` +
-      ' '.repeat(nowPlayingWidth - 2) +
+      ' '.repeat(nowPlayingWidth) +
       `${THEME.border}${BOX.vertical}${RESET}`;
     for (let i = 0; i < remaining; i++) {
       output.push(blankRow);
