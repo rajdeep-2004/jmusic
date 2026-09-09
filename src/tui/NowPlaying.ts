@@ -1,10 +1,25 @@
+/**
+ * NowPlaying.ts — Right-side Now Playing panel.
+ *
+ * Displays:
+ *  - Panel heading
+ *  - Track title, artist, album
+ *  - Progress bar with timestamps
+ *  - Transport controls  ◀◀  ⏸/▶  ▶▶
+ *  - Volume / status line
+ *
+ * Uses the EXISTING playback state — does NOT create a player.
+ */
+
 import { AppState } from '../app/state.js';
 import { renderProgressBar } from './ProgressBar.js';
 import {
-  RESET, BOLD, DIM,
+  RESET, BOLD,
   THEME, BOX,
   padEndAnsi, stripAnsi,
 } from './colors.js';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function statusColor(status: string): string {
   switch (status) {
@@ -26,14 +41,30 @@ function statusIcon(status: string): string {
   }
 }
 
-export function renderNowPlaying(state: AppState, maxRows: number, maxWidth: number): string[] {
+/** Truncate str to maxLen, appending '…' if cut */
+function trunc(str: string, maxLen: number): string {
+  if (str.length <= maxLen) return str;
+  return str.slice(0, maxLen - 1) + '…';
+}
+
+// ─── Public renderer ──────────────────────────────────────────────────────────
+
+/**
+ * Render the Now Playing panel as exactly `maxRows` lines, each `maxWidth` wide.
+ */
+export function renderNowPlaying(
+  state: AppState,
+  maxRows: number,
+  maxWidth: number
+): string[] {
   const lines: string[] = [];
 
-  const sectionLabel = ' 🎵 Now Playing ';
+  // ── Section header ─────────────────────────────────────────────────────────
+  const sectionLabel = ' ♪ Now Playing ';
   const labelLen = stripAnsi(sectionLabel);
   const divLen = Math.max(0, maxWidth - labelLen - 2);
   lines.push(
-    `${THEME.border}${BOX.horizontal}${BOX.horizontal}${RESET}${THEME.title}${sectionLabel}${RESET}${THEME.border}${BOX.horizontal.repeat(divLen)}${RESET}`
+    `${THEME.border}${BOX.horizontal}${BOX.horizontal}${RESET}${THEME.title}${BOLD}${sectionLabel}${RESET}${THEME.border}${BOX.horizontal.repeat(divLen)}${RESET}`
   );
 
   const icon   = statusIcon(state.playbackStatus);
@@ -44,59 +75,74 @@ export function renderNowPlaying(state: AppState, maxRows: number, maxWidth: num
   const volLabel = state.volume === 0 ? '🔇 MUTED' : `🔊 ${state.volume}%`;
   const volBadge = `${volColor}${BOLD}${volLabel}${RESET}`;
 
+  // ── Stopped / no track state ───────────────────────────────────────────────
   if (!state.currentTrack || state.playbackStatus === 'stopped') {
     lines.push('');
-    const statusLine = `Status: ${tag}    ${volBadge}`;
-    const leftPadStatus = Math.max(0, Math.floor((maxWidth - stripAnsi(statusLine)) / 2));
-    lines.push(' '.repeat(leftPadStatus) + statusLine);
+    const statusLine = `${tag}`;
+    const lp1 = Math.max(0, Math.floor((maxWidth - stripAnsi(statusLine)) / 2));
+    lines.push(' '.repeat(lp1) + statusLine);
     lines.push('');
-    const hint = `${THEME.dim}Select a song from Discover or Search and press Enter${RESET}`;
-    const leftPadHint = Math.max(0, Math.floor((maxWidth - stripAnsi(hint)) / 2));
-    lines.push(' '.repeat(leftPadHint) + hint);
+    const vol = `${volBadge}`;
+    const lp2 = Math.max(0, Math.floor((maxWidth - stripAnsi(vol)) / 2));
+    lines.push(' '.repeat(lp2) + vol);
+    lines.push('');
+    const hint = `${THEME.dim}Select a song and press Enter${RESET}`;
+    const lp3 = Math.max(0, Math.floor((maxWidth - stripAnsi(hint)) / 2));
+    lines.push(' '.repeat(lp3) + hint);
     while (lines.length < maxRows) lines.push('');
     return lines.slice(0, maxRows);
   }
 
-  // Active track details
+  // ── Active track ───────────────────────────────────────────────────────────
+  const innerW = maxWidth - 2; // 1 space left-pad, 1 right-pad
+
   lines.push('');
 
-  // Track Title
-  const rawTitle = state.currentTrack.title;
-  const titleText = `${THEME.title}${rawTitle.length > maxWidth - 4 ? rawTitle.slice(0, maxWidth - 5) + '…' : rawTitle}${RESET}`;
-  const padTitle = Math.max(0, Math.floor((maxWidth - stripAnsi(titleText)) / 2));
-  lines.push(' '.repeat(padTitle) + titleText);
+  // Track title — bold accent
+  const rawTitle  = trunc(state.currentTrack.title, innerW);
+  const titleText = ` ${THEME.accent}${BOLD}${rawTitle}${RESET}`;
+  lines.push(padEndAnsi(titleText, maxWidth));
 
-  // Artist
-  const rawArtist = state.currentTrack.artist;
-  const artistText = `${THEME.accent}${rawArtist.length > maxWidth - 4 ? rawArtist.slice(0, maxWidth - 5) + '…' : rawArtist}${RESET}`;
-  const padArtist = Math.max(0, Math.floor((maxWidth - stripAnsi(artistText)) / 2));
-  lines.push(' '.repeat(padArtist) + artistText);
+  // Artist — muted
+  const rawArtist  = trunc(state.currentTrack.artist, innerW);
+  const artistText = ` ${THEME.muted}${rawArtist}${RESET}`;
+  lines.push(padEndAnsi(artistText, maxWidth));
 
-  // Album if available
-  if (state.currentTrack.album && maxRows >= 16) {
-    const rawAlbum = `Album: ${state.currentTrack.album}`;
-    const albumText = `${THEME.muted}${rawAlbum.length > maxWidth - 4 ? rawAlbum.slice(0, maxWidth - 5) + '…' : rawAlbum}${RESET}`;
-    const padAlbum = Math.max(0, Math.floor((maxWidth - stripAnsi(albumText)) / 2));
-    lines.push(' '.repeat(padAlbum) + albumText);
+  // Album — dimmer, conditional
+  if (state.currentTrack.album) {
+    const rawAlbum  = trunc(`Album: ${state.currentTrack.album}`, innerW);
+    const albumText = ` ${THEME.dim}${rawAlbum}${RESET}`;
+    lines.push(padEndAnsi(albumText, maxWidth));
+  } else {
+    lines.push('');
   }
 
-  // Transport buttons display
-  const playSymbol = state.playbackStatus === 'playing' ? `${THEME.accent}❚❚${RESET}` : `${THEME.success}▶${RESET}`;
-  const transport = `${THEME.dim}◀◀${RESET}    ${playSymbol}    ${THEME.dim}▶▶${RESET}`;
-  const padTransport = Math.max(0, Math.floor((maxWidth - stripAnsi(transport)) / 2));
-  lines.push(' '.repeat(padTransport) + transport);
+  lines.push('');
 
   // Progress bar
-  const barWidth = Math.max(10, maxWidth - 22);
-  const totalDuration = state.duration > 0 ? state.duration : (state.currentTrack.duration || 0);
+  const barWidth = Math.max(6, maxWidth - 14); // leave room for timestamps
+  const totalDuration =
+    state.duration > 0 ? state.duration : state.currentTrack.duration || 0;
   const progBar = renderProgressBar(state.currentPosition, totalDuration, barWidth);
-  const padBar = Math.max(0, Math.floor((maxWidth - stripAnsi(progBar)) / 2));
-  lines.push(' '.repeat(padBar) + progBar);
+  const lp = Math.max(0, Math.floor((maxWidth - stripAnsi(progBar)) / 2));
+  lines.push(' '.repeat(lp) + progBar);
 
-  // Status & Volume footer line
-  const metaLine = `${tag}       ${volBadge}`;
-  const padMeta = Math.max(0, Math.floor((maxWidth - stripAnsi(metaLine)) / 2));
-  lines.push(' '.repeat(padMeta) + metaLine);
+  lines.push('');
+
+  // Transport controls — centered
+  const playSymbol =
+    state.playbackStatus === 'playing'
+      ? `${THEME.accent}${BOLD}⏸${RESET}`
+      : `${THEME.success}${BOLD}▶${RESET}`;
+  const transport = `${THEME.dim}◀◀${RESET}  ${playSymbol}  ${THEME.dim}▶▶${RESET}`;
+  const lpT = Math.max(0, Math.floor((maxWidth - stripAnsi(transport)) / 2));
+  lines.push(' '.repeat(lpT) + transport);
+
+  lines.push('');
+
+  // Volume + status on one line, left-aligned
+  const metaLine = ` ${volBadge}   ${tag}`;
+  lines.push(padEndAnsi(metaLine, maxWidth));
 
   while (lines.length < maxRows) lines.push('');
   return lines.slice(0, maxRows);

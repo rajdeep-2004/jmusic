@@ -1,130 +1,238 @@
+/**
+ * QueueView.ts — Queue panel renderers.
+ *
+ *  renderQueueVertical — Full queue view (when user presses "3")
+ *  renderQueueStrip    — Compact bottom strip shown below main content
+ */
+
 import { AppState } from '../app/state.js';
 import {
-  RESET, BOLD, DIM,
+  RESET, BOLD,
   THEME, BOX,
   padEndAnsi, stripAnsi,
 } from './colors.js';
 import { formatTime } from '../utils/formatTime.js';
 
-/** Render queue as a full vertical list panel */
-export function renderQueueVertical(state: AppState, maxRows: number, maxWidth: number): string[] {
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function trunc(str: string, maxLen: number): string {
+  if (str.length <= maxLen) return str;
+  return str.slice(0, maxLen - 1) + '…';
+}
+
+// ─── Column widths (same as HomeView / SearchView) ────────────────────────────
+
+interface ColWidths {
+  num: number;
+  dur: number;
+  title: number;
+  artist: number;
+}
+
+function colWidths(maxWidth: number): ColWidths {
+  const num = 4;
+  const dur = 6;
+  const sep = 2;
+  const remaining = Math.max(20, maxWidth - num - dur - sep);
+  const title = Math.max(8, Math.floor(remaining * 0.55));
+  const artist = Math.max(6, remaining - title);
+  return { num, dur, title, artist };
+}
+
+// ─── Full Queue View ──────────────────────────────────────────────────────────
+
+/** Render queue as a full vertical list panel (view mode "3") */
+export function renderQueueVertical(
+  state: AppState,
+  maxRows: number,
+  maxWidth: number
+): string[] {
   const lines: string[] = [];
 
-  const countTag = state.queue.length > 0 ? ` (${state.queue.length}) ` : ' ';
-  const sectionLabel = ` 🎶 Playback Queue${countTag}`;
+  const countTag = state.queue.length > 0 ? ` (${state.queue.length})` : '';
+  const sectionLabel = ` Queue${countTag} `;
   const labelLen = stripAnsi(sectionLabel);
   const divLen = Math.max(0, maxWidth - labelLen - 2);
   lines.push(
     `${THEME.border}${BOX.horizontal}${BOX.horizontal}${RESET}${THEME.title}${sectionLabel}${RESET}${THEME.border}${BOX.horizontal.repeat(divLen)}${RESET}`
   );
 
-  let availableRows = maxRows - 2; // leave 1 row for footer
+  const cw = colWidths(maxWidth);
+  let availableRows = maxRows - 2; // header + footer summary
 
+  // ── Empty state ────────────────────────────────────────────────────────────
   if (state.queue.length === 0) {
-    const padTop = Math.max(0, Math.floor(availableRows / 2) - 1);
-    for (let i = 0; i < padTop; i++) lines.push('');
+    lines.push('');
     const emptyMsg = `${THEME.muted}Your queue is empty.${RESET}`;
-    const hintMsg  = `${THEME.dim}Select a song in Discover or Search and press [A] to add it.${RESET}`;
-    const leftPad1 = Math.max(0, Math.floor((maxWidth - stripAnsi(emptyMsg)) / 2));
-    const leftPad2 = Math.max(0, Math.floor((maxWidth - stripAnsi(hintMsg)) / 2));
-    lines.push(' '.repeat(leftPad1) + emptyMsg);
-    lines.push(' '.repeat(leftPad2) + hintMsg);
+    const hintMsg  = `${THEME.dim}Select a song and press [A] to add it.${RESET}`;
+    const lp1 = Math.max(0, Math.floor((maxWidth - stripAnsi(emptyMsg)) / 2));
+    const lp2 = Math.max(0, Math.floor((maxWidth - stripAnsi(hintMsg)) / 2));
+    lines.push(' '.repeat(lp1) + emptyMsg);
+    lines.push(' '.repeat(lp2) + hintMsg);
     while (lines.length < maxRows) lines.push('');
     return lines.slice(0, maxRows);
   }
 
-  const pageSize = Math.max(1, availableRows);
-  const maxStart = Math.max(0, state.queue.length - pageSize);
+  // ── Column headers ─────────────────────────────────────────────────────────
+  const numHdr    = `${THEME.dim} #  ${RESET}`;
+  const titleHdr  = padEndAnsi(`${THEME.dim}Title${RESET}`, cw.title + 4);
+  const artistHdr = padEndAnsi(`${THEME.dim}Artist${RESET}`, cw.artist + 4);
+  const durHdr    = `${THEME.dim}  Dur${RESET}`;
+  lines.push(`${numHdr}${titleHdr}${artistHdr}${durHdr}`);
+  lines.push(`${THEME.dim}${BOX.horizontal.repeat(maxWidth)}${RESET}`);
+  availableRows -= 2;
+
+  // ── Paginated track list ───────────────────────────────────────────────────
+  const pageSize   = Math.max(1, availableRows);
+  const maxStart   = Math.max(0, state.queue.length - pageSize);
   const idealStart = Math.max(0, state.queueSelectedIndex - Math.floor(pageSize / 2));
-  const startIdx = Math.min(idealStart, maxStart);
-  const visibleTracks = state.queue.slice(startIdx, startIdx + pageSize);
+  const startIdx   = Math.min(idealStart, maxStart);
+  const visible    = state.queue.slice(startIdx, startIdx + pageSize);
 
-  for (let i = 0; i < visibleTracks.length; i++) {
-    const track = visibleTracks[i];
-    const actualIdx = startIdx + i;
-    const isCurrentPlaying = actualIdx === state.queueIndex;
+  for (let i = 0; i < visible.length; i++) {
+    const track      = visible[i];
+    const actualIdx  = startIdx + i;
+    const isCurrent  = actualIdx === state.queueIndex;
     const isSelected = actualIdx === state.queueSelectedIndex;
-    const numStr = String(actualIdx + 1).padStart(2, '0');
-    const timeStr = ` ${formatTime(track.duration)}`;
 
-    const marker = isCurrentPlaying ? `${THEME.success}▶${RESET}` : ' ';
+    const numStr  = String(actualIdx + 1).padStart(2, '0');
+    const timeStr = formatTime(track.duration);
+    const title   = trunc(track.title, cw.title);
+    const artist  = trunc(track.artist, cw.artist);
 
     if (isSelected) {
-      const prefix = ` ${marker} ${numStr}. `;
-      const availText = Math.max(10, maxWidth - stripAnsi(prefix) - stripAnsi(timeStr));
-      const trackText = `${track.title} – ${track.artist}`.slice(0, availText).padEnd(availText, ' ');
-      const row = `${THEME.selectedBg}${THEME.selectedFg}${BOLD}${prefix}${trackText}${timeStr}${RESET}`;
-      lines.push(padEndAnsi(row, maxWidth));
+      const marker = isCurrent ? '▶' : ' ';
+      const content =
+        `${marker} ${numStr} ` +
+        title.padEnd(cw.title, ' ') + ' ' +
+        artist.padEnd(cw.artist, ' ') +
+        ' ' + timeStr;
+      const padded = content.padEnd(maxWidth, ' ').slice(0, maxWidth);
+      lines.push(`${THEME.selectedBg}${THEME.selectedFg}${BOLD}${padded}${RESET}`);
+    } else if (isCurrent) {
+      const numCol    = `${THEME.success}▶ ${numStr}${RESET} `;
+      const titleCol  = `${THEME.accent}${BOLD}${title.padEnd(cw.title, ' ')}${RESET} `;
+      const artistCol = `${THEME.muted}${artist.padEnd(cw.artist, ' ')}${RESET}`;
+      const durCol    = ` ${THEME.success}${timeStr}${RESET}`;
+      lines.push(numCol + titleCol + artistCol + durCol);
     } else {
-      const prefix = ` ${marker} ${THEME.dim}${numStr}.${RESET} `;
-      const availText = Math.max(10, maxWidth - 8 - stripAnsi(timeStr));
-      const rawText = `${track.title} – ${track.artist}`;
-      const slicedText = rawText.length > availText ? rawText.slice(0, availText - 1) + '…' : rawText;
-
-      const titlePartClean = slicedText.split(' – ')[0] || '';
-      const artistPartClean = slicedText.includes(' – ') ? slicedText.slice(titlePartClean.length + 3) : '';
-
-      let formattedText = isCurrentPlaying ? `${THEME.accent}${BOLD}${titlePartClean}${RESET}` : `${THEME.primary}${titlePartClean}${RESET}`;
-      if (artistPartClean) {
-        formattedText += `${THEME.muted} – ${artistPartClean}${RESET}`;
-      }
-
-      const visibleLen = 8 + stripAnsi(formattedText) + stripAnsi(timeStr);
-      const pad = Math.max(0, maxWidth - visibleLen);
-      const row = `${prefix}${formattedText}${' '.repeat(pad)}${THEME.muted}${timeStr}${RESET}`;
-      lines.push(row);
+      const numCol    = `  ${THEME.dim}${numStr}${RESET} `;
+      const titleCol  = `${THEME.primary}${title.padEnd(cw.title, ' ')}${RESET} `;
+      const artistCol = `${THEME.muted}${artist.padEnd(cw.artist, ' ')}${RESET}`;
+      const durCol    = ` ${THEME.dim}${timeStr}${RESET}`;
+      lines.push(numCol + titleCol + artistCol + durCol);
     }
   }
 
   while (lines.length < maxRows - 1) lines.push('');
 
-  // Queue summary footer
-  const summary = `${THEME.dim}Total: ${state.queue.length} track${state.queue.length === 1 ? '' : 's'}  │  [Enter] Play  │  [D] Remove${RESET}`;
-  lines.push(`  ${summary}`);
+  // Footer hint
+  const summary = `${THEME.dim}  ${state.queue.length} track${state.queue.length === 1 ? '' : 's'}   [Enter] Play  [D] Remove${RESET}`;
+  lines.push(summary);
 
   return lines.slice(0, maxRows);
 }
 
-/** Render queue as a horizontal bottom strip (for split views) */
-export function renderQueueView(state: AppState, maxWidth: number): string[] {
+// ─── Compact Queue Strip ──────────────────────────────────────────────────────
+
+/**
+ * Render a compact 2-track queue strip (for the bottom of the main column).
+ *
+ * Always returns exactly `stripHeight` lines.
+ * Layout:
+ *   line 0: section header (── Queue (n) ─── total_dur ──)
+ *   lines 1..stripHeight-2: one track each
+ *   (last line is for the caller to use as separator if needed)
+ */
+export function renderQueueStrip(
+  state: AppState,
+  maxWidth: number,
+  stripHeight: number
+): string[] {
   const lines: string[] = [];
 
-  const countTag = state.queue.length > 0 ? ` (${state.queue.length}) ` : ' ';
-  const sectionLabel = ` 🎶 Queue${countTag}`;
+  // ── Header row ─────────────────────────────────────────────────────────────
+  const count = state.queue.length;
+  const totalSecs = state.queue.reduce((s, t) => s + (t.duration || 0), 0);
+  const totalStr  = count > 0 ? formatTime(totalSecs) : '';
+  const countPart = count > 0 ? ` (${count})` : '';
+  const sectionLabel = ` Queue${countPart} `;
   const labelLen = stripAnsi(sectionLabel);
-  const divLen = Math.max(0, maxWidth - labelLen - 2);
-  lines.push(
-    `${THEME.border}${BOX.horizontal}${BOX.horizontal}${RESET}${THEME.title}${sectionLabel}${RESET}${THEME.border}${BOX.horizontal.repeat(divLen)}${RESET}`
-  );
 
-  if (state.queue.length === 0) {
-    lines.push(`  ${THEME.muted}Queue is empty.${RESET}  ${THEME.dim}Press [A] on any song to add it.${RESET}`);
-    return lines;
+  let headerContent: string;
+  if (totalStr) {
+    const rightPart = ` ${THEME.dim}${totalStr}${RESET} `;
+    const rightLen = stripAnsi(rightPart);
+    const dashes = Math.max(0, maxWidth - labelLen - rightLen - 2);
+    headerContent =
+      `${THEME.border}${BOX.horizontal}${BOX.horizontal}${RESET}` +
+      `${THEME.title}${sectionLabel}${RESET}` +
+      `${THEME.border}${BOX.horizontal.repeat(Math.floor(dashes / 2))}${RESET}` +
+      rightPart +
+      `${THEME.border}${BOX.horizontal.repeat(dashes - Math.floor(dashes / 2))}${RESET}`;
+  } else {
+    const dashes = Math.max(0, maxWidth - labelLen - 2);
+    headerContent =
+      `${THEME.border}${BOX.horizontal}${BOX.horizontal}${RESET}` +
+      `${THEME.title}${sectionLabel}${RESET}` +
+      `${THEME.border}${BOX.horizontal.repeat(dashes)}${RESET}`;
+  }
+  lines.push(headerContent);
+
+  // ── Empty state ────────────────────────────────────────────────────────────
+  if (count === 0) {
+    const emptyMsg = `  ${THEME.muted}Queue is empty.${RESET}  ${THEME.dim}Press [A] to add songs.${RESET}`;
+    lines.push(emptyMsg);
+    while (lines.length < stripHeight) lines.push('');
+    return lines.slice(0, stripHeight);
   }
 
-  const items = state.queue.map((track, idx) => {
+  // ── Track rows — up to (stripHeight - 1) rows ─────────────────────────────
+  const trackRows = Math.max(1, stripHeight - 1);
+  const visible   = state.queue.slice(0, trackRows);
+
+  for (let i = 0; i < visible.length; i++) {
+    const track    = visible[i];
+    const idx      = i;
     const isCurrent = idx === state.queueIndex;
+    const timeStr  = formatTime(track.duration);
+    const durWidth = 6;
+    const prefixWidth = 5; // "  1. " or "▶ 1. "
+    const textWidth = Math.max(10, maxWidth - prefixWidth - durWidth - 1);
+
+    // Build "Title — Artist" string
+    const combined = `${track.title}  —  ${track.artist}`;
+    const text     = trunc(combined, textWidth).padEnd(textWidth, ' ');
+
     if (isCurrent) {
-      return `${THEME.accent}${BOLD}▶ ${idx + 1}. ${track.title}${RESET}`;
+      const row =
+        `${THEME.success}${BOLD}▶${RESET} ` +
+        `${THEME.dim}${idx + 1}.${RESET} ` +
+        `${THEME.accent}${BOLD}${text}${RESET}` +
+        `${THEME.success} ${timeStr}${RESET}`;
+      lines.push(row);
+    } else {
+      const row =
+        `  ` +
+        `${THEME.dim}${idx + 1}.${RESET} ` +
+        `${THEME.primary}${text}${RESET}` +
+        `${THEME.dim} ${timeStr}${RESET}`;
+      lines.push(row);
     }
-    return `${THEME.muted}${idx + 1}. ${track.title}${RESET}`;
-  });
-
-  let line = '  ';
-  let visibleLen = 2;
-  for (let i = 0; i < items.length; i++) {
-    const sep = i > 0 ? `  ${THEME.dim}·${RESET}  ` : '';
-    const sepV = i > 0 ? 5 : 0;
-    const itemV = stripAnsi(items[i]);
-    if (visibleLen + sepV + itemV > maxWidth - 14 && i > 0) {
-      const remaining = state.queue.length - i;
-      line += `${sep}${THEME.dim}+${remaining} more${RESET}`;
-      break;
-    }
-    line += sep + items[i];
-    visibleLen += sepV + itemV;
   }
-  lines.push(line);
 
-  return lines;
+  // If queue has more tracks than visible rows, show "+N more" hint
+  if (count > trackRows) {
+    const more = count - trackRows;
+    const moreStr = `  ${THEME.dim}+${more} more track${more === 1 ? '' : 's'}…${RESET}`;
+    // Replace last track row with hint if we ran out of space
+    if (lines.length >= stripHeight) {
+      lines[stripHeight - 1] = moreStr;
+    } else {
+      lines.push(moreStr);
+    }
+  }
+
+  while (lines.length < stripHeight) lines.push('');
+  return lines.slice(0, stripHeight);
 }
