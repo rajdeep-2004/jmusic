@@ -379,7 +379,7 @@ export class AppView {
     }
 
     // ── Pad remaining body rows ──────────────────────────────────────────
-    const usedBodyRows = 1 /* top sep */ + panelHeight + (queueStripHeight > 0 ? 1 + queueStripHeight : 0);
+    const usedBodyRows = panelHeight + (queueStripHeight > 0 ? 1 + queueStripHeight : 0);
     const remaining = Math.max(0, bodyHeight - usedBodyRows);
     const blankRow =
       `${THEME.border}${BOX.vertical}${RESET}` +

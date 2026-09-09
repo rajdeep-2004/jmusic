@@ -31,31 +31,31 @@ describe('Layout System', () => {
     assert.equal(layout.mainWidth, 66);
   });
 
-  test('headerHeight is always 1, footerHeight is always 2', () => {
+  test('headerHeight is 3, footerHeight is 4 (all fixed frame rows)', () => {
     const a = computeLayout(80, 24);
-    assert.equal(a.headerHeight, 1);
-    assert.equal(a.footerHeight, 2);
+    assert.equal(a.headerHeight, 3);  // topBorder + header + body-sep
+    assert.equal(a.footerHeight, 4);  // fullSep + controls + status + bottomBorder
 
     const b = computeLayout(100, 40);
-    assert.equal(b.headerHeight, 1);
-    assert.equal(b.footerHeight, 2);
+    assert.equal(b.headerHeight, 3);
+    assert.equal(b.footerHeight, 4);
   });
 
-  test('bodyHeight = rows - header - footer', () => {
+  test('bodyHeight = rows - 7 (headerHeight=3 + footerHeight=4)', () => {
     const layout = computeLayout(100, 30);
-    assert.equal(layout.bodyHeight, 30 - 1 - 2);
+    assert.equal(layout.bodyHeight, 30 - 3 - 4);
   });
 
   test('queue strip visible at bodyHeight >= 20', () => {
-    const enough = computeLayout(100, 24); // bodyHeight = 21
+    const enough = computeLayout(100, 27); // bodyHeight = 27-6=21
     assert.ok(enough.bodyHeight >= 20);
     assert.ok(enough.queueStripHeight > 0);
     assert.ok(enough.queueStripTracks >= 1);
   });
 
   test('queue strip hidden when bodyHeight < 20', () => {
-    const small = computeLayout(100, 22); // bodyHeight = 22-1-2=19
-    assert.equal(small.bodyHeight, 19);
+    const small = computeLayout(100, 25); // bodyHeight = 25-7=18
+    assert.equal(small.bodyHeight, 18);
     assert.equal(small.queueStripHeight, 0);
     assert.equal(small.queueStripTracks, 0);
   });

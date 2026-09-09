@@ -68,8 +68,11 @@ export interface LayoutDimensions {
  * Call this at the top of every render cycle.
  */
 export function computeLayout(cols: number, rows: number): LayoutDimensions {
-  const headerHeight = 1;
-  const footerHeight = 2; // shortcut bar + status line
+  // Fixed rows consumed by the compositor's outer frame:
+  //   topBorder(1) + header(1) + threePanelSep/fullSep(1) = 3 top
+  //   fullSep(1) + controls(1) + status(1) + bottomBorder(1) = 4 bottom
+  const headerHeight = 3; // topBorder + header + body-separator row
+  const footerHeight = 4; // fullSep + controls + statusLine + bottomBorder
 
   const bodyHeight = Math.max(4, rows - headerHeight - footerHeight);
 
