@@ -92,8 +92,8 @@ export function renderHomeView(
 
   // ── Column headers ─────────────────────────────────────────────────────────
   const numHdr    = `${THEME.dim} #  ${RESET}`;
-  const titleHdr  = padEndAnsi(`${THEME.dim}Title${RESET}`, cw.title + 4); // +4 for ansi
-  const artistHdr = padEndAnsi(`${THEME.dim}Artist${RESET}`, cw.artist + 4);
+  const titleHdr  = padEndAnsi(`${THEME.dim}Title${RESET}`, cw.title + 1);
+  const artistHdr = padEndAnsi(`${THEME.dim}Artist${RESET}`, cw.artist);
   const durHdr    = `${THEME.dim}  Dur${RESET}`;
   lines.push(`${numHdr}${titleHdr}${artistHdr}${durHdr}`);
 
