@@ -1,10 +1,11 @@
 import { BOLD, RESET, THEME, stripAnsi } from './colors.js';
 
 export const JMUSIC_LOGO_LINES = [
-  '  _ __  __           _      ',
-  ' | |  \\/  |_   _ ___(_) ___ ',
-  ' | | |\\/| | | | / __| |/ __|',
-  ' |_|_|  |_|\\__,_|___/_|\\___|',
+  '   __  __  __           _      ',
+  '  / / /  |/  /_  _______(_)____',
+  ' / / / /|_/ / / / / ___/ / ___/',
+  '/ /_/ /  / / /_/ (__  ) / /__  ',
+  '\\____/_/  /_/\\__,_/____/_/\\___/ ',
 ];
 
 export function renderLogo(maxWidth: number): string[] {
