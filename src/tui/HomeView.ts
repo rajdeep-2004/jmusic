@@ -21,26 +21,60 @@ export function renderHomeView(state: AppState, maxRows: number, maxWidth: numbe
 
   let availableRows = maxRows - 1;
 
-  // ── Category Tabs Bar ───────────────────────────────────────────────────────
-  const tabs = DISCOVER_CATEGORIES.map((cat) => {
-    const isActive = cat.key === state.discoverCategory;
+  // ── Category Tabs Bar with Adaptive Viewport ──────────────────────────────
+  const activeIdx = Math.max(0, DISCOVER_CATEGORIES.findIndex((c) => c.key === state.discoverCategory));
+
+  const renderedTabs = DISCOVER_CATEGORIES.map((cat, idx) => {
+    const isActive = idx === activeIdx;
     if (isActive) {
       return `${THEME.selectedBg}${THEME.selectedFg}${BOLD} [ ${cat.name} ] ${RESET}`;
     }
     return `${THEME.dim}[ ${cat.name} ]${RESET}`;
   });
 
-  // Fit tabs horizontally
-  let tabLine = ' ';
-  let tabLen = 1;
-  for (const tab of tabs) {
-    const tLen = stripAnsi(tab);
-    if (tabLen + tLen + 1 < maxWidth) {
-      tabLine += tab + ' ';
-      tabLen += tLen + 1;
+  const allTabsStr = ' ' + renderedTabs.join(' ');
+  if (stripAnsi(allTabsStr) <= maxWidth) {
+    lines.push(padEndAnsi(allTabsStr, maxWidth));
+  } else {
+    // Sliding window centered on active category
+    let windowStart = activeIdx;
+    let windowEnd = activeIdx;
+
+    while (true) {
+      let expanded = false;
+
+      if (windowStart > 0) {
+        const testTabs = renderedTabs.slice(windowStart - 1, windowEnd + 1);
+        const leftIndicator = windowStart - 1 > 0 ? `${THEME.accent}‹ ${RESET}` : ' ';
+        const rightIndicator = windowEnd < DISCOVER_CATEGORIES.length - 1 ? `${THEME.accent} ›${RESET}` : ' ';
+        const line = leftIndicator + testTabs.join(' ') + rightIndicator;
+        if (stripAnsi(line) <= maxWidth) {
+          windowStart--;
+          expanded = true;
+        }
+      }
+
+      if (windowEnd < DISCOVER_CATEGORIES.length - 1) {
+        const testTabs = renderedTabs.slice(windowStart, windowEnd + 2);
+        const leftIndicator = windowStart > 0 ? `${THEME.accent}‹ ${RESET}` : ' ';
+        const rightIndicator = windowEnd + 2 < DISCOVER_CATEGORIES.length ? `${THEME.accent} ›${RESET}` : ' ';
+        const line = leftIndicator + testTabs.join(' ') + rightIndicator;
+        if (stripAnsi(line) <= maxWidth) {
+          windowEnd++;
+          expanded = true;
+        }
+      }
+
+      if (!expanded) break;
     }
+
+    const leftIndicator = windowStart > 0 ? `${THEME.accent}‹ ${RESET}` : ' ';
+    const rightIndicator = windowEnd < DISCOVER_CATEGORIES.length - 1 ? `${THEME.accent} ›${RESET}` : ' ';
+    const visibleTabs = renderedTabs.slice(windowStart, windowEnd + 1);
+    const line = leftIndicator + visibleTabs.join(' ') + rightIndicator;
+    lines.push(padEndAnsi(line, maxWidth));
   }
-  lines.push(padEndAnsi(tabLine, maxWidth));
+
   lines.push(`${THEME.border}${BOX.horizontal.repeat(maxWidth)}${RESET}`);
   availableRows -= 2;
 

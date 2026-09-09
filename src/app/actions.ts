@@ -339,26 +339,59 @@ export async function loadDiscoverTracks(
   categoryKey: string = 'featured',
   onUpdate: () => void
 ): Promise<void> {
-  state.isDiscoverLoading = true;
+  // Save current selection index for outgoing category
+  if (state.discoverCategory && typeof state.discoverSelectedIndex === 'number') {
+    state.discoverIndexMap[state.discoverCategory] = state.discoverSelectedIndex;
+  }
+
   state.discoverCategory = categoryKey;
   const catObj = DISCOVER_CATEGORIES.find((c) => c.key === categoryKey) || DISCOVER_CATEGORIES[0];
+
+  // If already in cache, restore instantly with zero network delay and zero flicker!
+  if (state.discoverCache && state.discoverCache[categoryKey] && state.discoverCache[categoryKey].length > 0) {
+    const cachedTracks = state.discoverCache[categoryKey];
+    state.discoverTracks = cachedTracks;
+    const savedIdx = state.discoverIndexMap[categoryKey] || 0;
+    state.discoverSelectedIndex = Math.min(savedIdx, Math.max(0, cachedTracks.length - 1));
+    state.discoverSelectedTrack = cachedTracks[state.discoverSelectedIndex] || null;
+    state.isDiscoverLoading = false;
+    state.statusMessage = `Discover: ${catObj.name} (${cachedTracks.length} tracks). [C] Genre, [Enter] Play, [A] Queue.`;
+    onUpdate();
+    return;
+  }
+
+  // First time loading this category: show loading state
+  state.isDiscoverLoading = true;
+  state.discoverTracks = [];
+  state.discoverSelectedIndex = 0;
+  state.discoverSelectedTrack = null;
   state.statusMessage = `Loading ${catObj.name} tracks from Jamendo...`;
   onUpdate();
 
   try {
     const tracks = await client.getDiscoverTracks(categoryKey);
-    state.discoverTracks = tracks;
-    state.discoverSelectedIndex = 0;
-    state.discoverSelectedTrack = tracks.length > 0 ? tracks[0] : null;
-    state.statusMessage = `Loaded ${tracks.length} tracks in "${catObj.name}". Press Enter to play, A to queue.`;
+    state.discoverCache[categoryKey] = tracks;
+
+    // Guard against race conditions: only update if user is STILL on this category!
+    if (state.discoverCategory === categoryKey) {
+      state.discoverTracks = tracks;
+      const savedIdx = state.discoverIndexMap[categoryKey] || 0;
+      state.discoverSelectedIndex = Math.min(savedIdx, Math.max(0, tracks.length - 1));
+      state.discoverSelectedTrack = tracks[state.discoverSelectedIndex] || null;
+      state.statusMessage = `Loaded ${tracks.length} tracks in "${catObj.name}". Press Enter to play, A to queue.`;
+    }
   } catch (err: any) {
-    state.discoverTracks = [];
-    state.discoverSelectedIndex = 0;
-    state.discoverSelectedTrack = null;
-    state.statusMessage = `Failed loading ${catObj.name}: ${err?.message || err}`;
+    if (state.discoverCategory === categoryKey) {
+      state.discoverTracks = [];
+      state.discoverSelectedIndex = 0;
+      state.discoverSelectedTrack = null;
+      state.statusMessage = `Failed loading ${catObj.name}: ${err?.message || err}`;
+    }
   } finally {
-    state.isDiscoverLoading = false;
-    onUpdate();
+    if (state.discoverCategory === categoryKey) {
+      state.isDiscoverLoading = false;
+      onUpdate();
+    }
   }
 }
 

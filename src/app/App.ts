@@ -224,25 +224,14 @@ export class App {
       return;
     }
 
-    // Tab key: In Home, cycles categories; in other views, cycles tabs
+    // Tab key: Consistently cycles through views (1: Discover -> 2: Search -> 3: Queue -> 4: Now Playing)
     if (key === 'Tab') {
-      if (this.state.currentView === 'home') {
-        await cycleCategoryAction(this.state, this.client, 1, this.render);
-      } else {
-        cycleViewAction(this.state, this.render);
-      }
+      cycleViewAction(this.state, this.render);
       return;
     }
 
-    if (key === 'Shift+Tab') {
-      if (this.state.currentView === 'home') {
-        await cycleCategoryAction(this.state, this.client, -1, this.render);
-      }
-      return;
-    }
-
-    // Category navigation shortcuts
-    if (key === 'c' || key === 'C' || key === ']') {
+    // Category navigation shortcuts inside Discover (C, ], Shift+Tab forward; [ backward)
+    if (key === 'c' || key === 'C' || key === ']' || key === 'Shift+Tab') {
       await cycleCategoryAction(this.state, this.client, 1, this.render);
       return;
     }

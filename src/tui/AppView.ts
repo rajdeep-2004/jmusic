@@ -93,8 +93,8 @@ function renderControls(state: AppState, cols: number): string {
 
   const row1Hints = [
     renderBadge('Space', 'Play/Pause'),
-    renderBadge('1-4', 'Views'),
-    renderBadge('Tab / C', 'Category'),
+    renderBadge('Tab / 1-4', 'Views'),
+    renderBadge('C', 'Genre'),
     renderBadge('Enter', 'Play'),
     renderBadge('A', 'Queue'),
   ];
@@ -114,7 +114,8 @@ function renderControls(state: AppState, cols: number): string {
   if (cols >= 90) {
     const merged = [
       renderBadge('Space', 'Play/Pause'),
-      renderBadge('1-4', 'Tabs'),
+      renderBadge('Tab / 1-4', 'Views'),
+      renderBadge('C', 'Genre'),
       renderBadge('Enter', 'Play'),
       renderBadge('A', 'Queue'),
       renderBadge('/', 'Search'),

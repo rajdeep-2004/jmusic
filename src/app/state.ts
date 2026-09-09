@@ -22,6 +22,8 @@ export interface AppState {
   discoverTracks: Track[];
   discoverSelectedTrack: Track | null;
   discoverSelectedIndex: number;
+  discoverCache: Record<string, Track[]>;
+  discoverIndexMap: Record<string, number>;
   isDiscoverLoading: boolean;
   statusMessage?: string;
   inputMode: InputMode;
@@ -49,6 +51,8 @@ export function createInitialState(): AppState {
     discoverTracks: [],
     discoverSelectedTrack: null,
     discoverSelectedIndex: 0,
+    discoverCache: {},
+    discoverIndexMap: {},
     isDiscoverLoading: false,
     statusMessage: 'Ready. Press "/" to search, "1-4" for tabs, "Q" to quit.',
     inputMode: 'normal',
