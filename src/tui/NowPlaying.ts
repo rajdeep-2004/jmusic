@@ -1,5 +1,6 @@
 import { AppState } from '../app/state.js';
 import { renderProgressBar } from './ProgressBar.js';
+import { renderDancingCat } from './DancingCat.js';
 import {
   RESET, BOLD, DIM,
   THEME, BOX,
@@ -44,21 +45,28 @@ export function renderNowPlaying(state: AppState, maxRows: number, maxWidth: num
   const volLabel = state.volume === 0 ? '🔇 MUTED' : `🔊 ${state.volume}%`;
   const volBadge = `${volColor}${BOLD}${volLabel}${RESET}`;
 
-  if (!state.currentTrack || state.playbackStatus === 'stopped') {
-    lines.push('');
-    const emptyBox = [
-      `${THEME.border}${BOX.topLeft}${BOX.horizontal.repeat(16)}${BOX.topRight}${RESET}`,
-      `${THEME.border}${BOX.vertical}${RESET}  ${THEME.accent}♪ NO TRACK ♪${RESET}  ${THEME.border}${BOX.vertical}${RESET}`,
-      `${THEME.border}${BOX.bottomLeft}${BOX.horizontal.repeat(16)}${BOX.bottomRight}${RESET}`,
-    ];
-    for (const bLine of emptyBox) {
-      const leftPad = Math.max(0, Math.floor((maxWidth - stripAnsi(bLine)) / 2));
-      lines.push(' '.repeat(leftPad) + bLine);
+  // Check if we have room for the dancing cat (needs ~4 rows)
+  const showDancingCat = maxRows >= 14;
+
+  if (showDancingCat) {
+    const catLines = renderDancingCat(state.playbackStatus, state.animTick || 0, maxWidth);
+    for (const cl of catLines) {
+      lines.push(cl);
     }
+  } else {
+    // Compact 1-line cat icon
+    const compactCat = state.playbackStatus === 'playing'
+      ? `${THEME.cat}🎧( ^.^ )ﾉ${RESET} ${THEME.note}♪ ♫${RESET}`
+      : `${THEME.cat}( -.- ) zZ${RESET}`;
+    const leftPadCat = Math.max(0, Math.floor((maxWidth - stripAnsi(compactCat)) / 2));
+    lines.push(' '.repeat(leftPadCat) + compactCat);
+  }
+
+  if (!state.currentTrack || state.playbackStatus === 'stopped') {
     lines.push('');
     const statusLine = `Status: ${tag}    ${volBadge}`;
     const leftPadStatus = Math.max(0, Math.floor((maxWidth - stripAnsi(statusLine)) / 2));
-    lines.push(' '.repeat(leftPadStatus) + `Status: ${tag}    ${volBadge}`);
+    lines.push(' '.repeat(leftPadStatus) + statusLine);
     lines.push('');
     const hint = `${THEME.dim}Select a song from Discover or Search and press Enter${RESET}`;
     const leftPadHint = Math.max(0, Math.floor((maxWidth - stripAnsi(hint)) / 2));
@@ -83,14 +91,12 @@ export function renderNowPlaying(state: AppState, maxRows: number, maxWidth: num
   lines.push(' '.repeat(padArtist) + artistText);
 
   // Album if available
-  if (state.currentTrack.album) {
+  if (state.currentTrack.album && maxRows >= 16) {
     const rawAlbum = `Album: ${state.currentTrack.album}`;
     const albumText = `${THEME.muted}${rawAlbum.length > maxWidth - 4 ? rawAlbum.slice(0, maxWidth - 5) + '…' : rawAlbum}${RESET}`;
     const padAlbum = Math.max(0, Math.floor((maxWidth - stripAnsi(albumText)) / 2));
     lines.push(' '.repeat(padAlbum) + albumText);
   }
-
-  lines.push('');
 
   // Transport buttons display
   const playSymbol = state.playbackStatus === 'playing' ? `${THEME.accent}❚❚${RESET}` : `${THEME.success}▶${RESET}`;
@@ -98,16 +104,12 @@ export function renderNowPlaying(state: AppState, maxRows: number, maxWidth: num
   const padTransport = Math.max(0, Math.floor((maxWidth - stripAnsi(transport)) / 2));
   lines.push(' '.repeat(padTransport) + transport);
 
-  lines.push('');
-
   // Progress bar
   const barWidth = Math.max(10, maxWidth - 22);
   const totalDuration = state.duration > 0 ? state.duration : (state.currentTrack.duration || 0);
   const progBar = renderProgressBar(state.currentPosition, totalDuration, barWidth);
   const padBar = Math.max(0, Math.floor((maxWidth - stripAnsi(progBar)) / 2));
   lines.push(' '.repeat(padBar) + progBar);
-
-  lines.push('');
 
   // Status & Volume footer line
   const metaLine = `${tag}       ${volBadge}`;

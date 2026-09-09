@@ -139,6 +139,9 @@ export class App {
       if (typeof vol === 'number' && vol >= 0) {
         this.state.volume = vol;
       }
+      if (this.state.playbackStatus === 'playing') {
+        this.state.animTick = (this.state.animTick + 1) % 10000;
+      }
       this.render();
     } catch {
       // Ignore transient query errors during transitions
