@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300" font-family="'JetBrains Mono','SF Mono',Menlo,Consolas,'DejaVu Sans Mono',monospace">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1C1916"/>
+      <stop offset="1" stop-color="#2B2520"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#F3C98B"/>
+      <stop offset="1" stop-color="#DAA06D"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="300" rx="16" fill="url(#bg)"/>
+  <rect x="12" y="12" width="1176" height="276" rx="12" fill="none" stroke="#5E5448" stroke-width="1.5"/>
+
+  <!-- vinyl -->
+  <g transform="translate(160 150)">
+    <circle r="92" fill="#141210" stroke="#5E5448" stroke-width="2"/>
+    <circle r="76" fill="none" stroke="#2B2520" stroke-width="1.5"/>
+    <circle r="62" fill="none" stroke="#2B2520" stroke-width="1.5"/>
+    <circle r="48" fill="none" stroke="#2B2520" stroke-width="1.5"/>
+    <circle r="30" fill="url(#gold)"/>
+    <circle r="5" fill="#1C1916"/>
+    <path d="M -70 -50 A 86 86 0 0 1 -20 -84" fill="none" stroke="#FAF7F2" stroke-opacity="0.25" stroke-width="3" stroke-linecap="round"/>
+  </g>
+
+  <!-- slant logo (same ASCII as src/tui/Logo.ts) -->
+  <g fill="url(#gold)" font-size="22" font-weight="700" xml:space="preserve" style="white-space:pre">
+    <text x="300" y="92">   __  __  __           _      </text>
+    <text x="300" y="118">  / / /  |/  /_  _______(_)____</text>
+    <text x="300" y="144"> / / / /|_/ / / / / ___/ / ___/</text>
+    <text x="300" y="170">/ /_/ /  / / /_/ (__  ) / /__  </text>
+    <text x="300" y="196">\____/_/  /_/\__,_/____/_/\___/ </text>
+  </g>
+
+  <text x="304" y="240" fill="#B5A895" font-size="20">Stream Creative Commons music from your terminal.</text>
+  <text x="304" y="268" fill="#7D7265" font-size="15">TypeScript · Node.js · Jamendo API · VLC</text>
+
+  <!-- progress bar -->
+  <g transform="translate(860 146)" font-size="14" fill="#B5A895">
+    <text x="0" y="5">01:32</text>
+    <rect x="52" y="-2" width="150" height="4" rx="2" fill="#423A31"/>
+    <rect x="52" y="-2" width="62" height="4" rx="2" fill="#F3C98B"/>
+    <circle cx="114" cy="0" r="6" fill="#F3C98B"/>
+    <text x="212" y="5">03:45</text>
+  </g>
+</svg>
